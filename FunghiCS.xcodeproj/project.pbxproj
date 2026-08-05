@@ -22,6 +22,8 @@
 		10010013 /* AggiungiOsservazioneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010013 /* AggiungiOsservazioneView.swift */; };
 		10010014 /* cosenza_dem.json in Resources */ = {isa = PBXBuildFile; fileRef = 20010014 /* cosenza_dem.json */; };
 		10010015 /* PrevisioneEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010015 /* PrevisioneEngineTests.swift */; };
+		10010018 /* SplashScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010018 /* SplashScreenView.swift */; };
+		10010019 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 20010019 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -53,6 +55,8 @@
 		20010015 /* PrevisioneEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrevisioneEngineTests.swift; sourceTree = "<group>"; };
 		20010016 /* FunghiCSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FunghiCSTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		20010017 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		20010018 /* SplashScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashScreenView.swift; sourceTree = "<group>"; };
+		20010019 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -131,6 +135,7 @@
 				20010011 /* DettaglioPuntoView.swift */,
 				20010012 /* ListaPuntiView.swift */,
 				20010013 /* AggiungiOsservazioneView.swift */,
+				20010018 /* SplashScreenView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -157,6 +162,7 @@
 			children = (
 				20010014 /* cosenza_dem.json */,
 				20010017 /* Info.plist */,
+				20010019 /* Assets.xcassets */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -242,6 +248,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				10010014 /* cosenza_dem.json in Resources */,
+				10010019 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -265,6 +272,7 @@
 				10010011 /* DettaglioPuntoView.swift in Sources */,
 				10010012 /* ListaPuntiView.swift in Sources */,
 				10010013 /* AggiungiOsservazioneView.swift in Sources */,
+				10010018 /* SplashScreenView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

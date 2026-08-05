@@ -3,6 +3,7 @@ import SwiftData
 
 @main
 struct FunghiCSApp: App {
+    @State private var isAppReady = false
     
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
@@ -14,7 +15,6 @@ struct FunghiCSApp: App {
         do {
             let container = try ModelContainer(for: schema, configurations: [modelConfiguration])
             
-            // Popola punti iniziali di esempio se vuoto
             Task { @MainActor in
                 let context = container.mainContext
                 let descriptor = FetchDescriptor<PuntoInteresse>()
@@ -31,16 +31,25 @@ struct FunghiCSApp: App {
 
     var body: some Scene {
         WindowGroup {
-            TabView {
-                MappaView()
-                    .tabItem {
-                        Label("Mappa Previsioni", systemImage: "map.fill")
-                    }
+            ZStack {
+                TabView {
+                    MappaView()
+                        .tabItem {
+                            Label("Mappa Calore", systemImage: "map.fill")
+                        }
+                    
+                    ListaPuntiView()
+                        .tabItem {
+                            Label("I miei Punti", systemImage: "mappin.and.ellipse")
+                        }
+                }
                 
-                ListaPuntiView()
-                    .tabItem {
-                        Label("I miei Punti", systemImage: "mappin.and.ellipse")
-                    }
+                // SplashScreen Overlay
+                if !isAppReady {
+                    SplashScreenView(isAppReady: $isAppReady)
+                        .transition(.opacity)
+                        .zIndex(1)
+                }
             }
             .onAppear {
                 NotificheService.shared.richiediAutorizzazione()

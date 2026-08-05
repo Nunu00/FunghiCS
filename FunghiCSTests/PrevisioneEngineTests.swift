@@ -5,7 +5,7 @@ final class PrevisioneEngineTests: XCTestCase {
     
     // Test Case 1: Correzione Quota Alta vs Bassa
     func testCorrezioneQuota() {
-        let puntoBasso = PuntoInteresse(nome: "Basso", latitude: 39.3, longitude: 16.2, quota: 400.0, pendenza: 10.0, esposizione: "N")
+        let puntoBasso = PuntoInteresse(nome: "Basso", latitude: 39.3, longitude: 16.2, quota: 450.0, pendenza: 10.0, esposizione: "N")
         let puntoAlto = PuntoInteresse(nome: "Alto", latitude: 39.3, longitude: 16.5, quota: 1300.0, pendenza: 10.0, esposizione: "N")
         
         let meteo = DatiMeteo(pioggiaCumulata15Giorni: 55.0, temperaturaMedia: 16.0)
@@ -13,7 +13,6 @@ final class PrevisioneEngineTests: XCTestCase {
         let resBasso = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: puntoBasso, meteo: meteo)
         let resAlto = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: puntoAlto, meteo: meteo)
         
-        // Quota alta ha soglia ridotta del 10% (54mm vs 60mm) e ritardo quota impostato
         XCTAssertEqual(resAlto.ritardoGiorniQuota, 14)
         XCTAssertEqual(resBasso.ritardoGiorniQuota, 0)
         XCTAssertLessThan(resAlto.sogliaRichiesta, resBasso.sogliaRichiesta)
@@ -29,7 +28,6 @@ final class PrevisioneEngineTests: XCTestCase {
         let resNord = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: puntoNord, meteo: meteo)
         let resSud = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: puntoSud, meteo: meteo)
         
-        // Il versante sud richiede il +15% di pioggia a causa dell'evaporazione
         XCTAssertGreaterThan(resSud.sogliaRichiesta, resNord.sogliaRichiesta)
     }
     
@@ -43,7 +41,6 @@ final class PrevisioneEngineTests: XCTestCase {
         let resRipido = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: puntoRipido, meteo: meteo)
         let resPiano = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: puntoPiano, meteo: meteo)
         
-        // Pendenza > 20° aumenta la soglia richiesta per via del dilavamento
         XCTAssertGreaterThan(resRipido.sogliaRichiesta, resPiano.sogliaRichiesta)
     }
     
@@ -51,12 +48,10 @@ final class PrevisioneEngineTests: XCTestCase {
     func testStatiTemporali() {
         let punto = PuntoInteresse(nome: "Test Point", latitude: 39.3, longitude: 16.3, quota: 800.0, pendenza: 10.0, esposizione: "N")
         
-        // Pioggia sufficiente (70mm > 60mm) con 5 giorni dall'ultima pioggia -> Buttata Probabile
         let meteoButtata = DatiMeteo(pioggiaCumulata15Giorni: 70.0, temperaturaMedia: 16.0, giorniDaUltimaPioggiaSignificativa: 5)
         let resButtata = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: punto, meteo: meteoButtata)
         XCTAssertEqual(resButtata.stato, .buttataProbabile)
         
-        // Pioggia scarse (20mm < 60mm) -> Non Favorevole
         let meteoScarsa = DatiMeteo(pioggiaCumulata15Giorni: 20.0, temperaturaMedia: 16.0, giorniDaUltimaPioggiaSignificativa: 5)
         let resScarsa = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: punto, meteo: meteoScarsa)
         XCTAssertEqual(resScarsa.stato, .nonFavorevole)
@@ -65,14 +60,20 @@ final class PrevisioneEngineTests: XCTestCase {
     // Test Case 5: Ricalibrazione con Osservazioni Utente
     func testCalibrazioneUtente() {
         let punto = PuntoInteresse(nome: "Test Calibrazione", latitude: 39.3, longitude: 16.3, moltiplicatoreSoglia: 1.0)
-        
-        // Aggiungi un'osservazione positiva (trovato funghi)
         let obsPos = Osservazione(data: Date(), trovato: true, quantitaKg: 1.5, specie: "Porcino", punto: punto)
         punto.osservazioni.append(obsPos)
         
         PrevisioneEngine.ricalibraMoltiplicatore(punto: punto)
-        
-        // Il moltiplicatore deve essersi abbassato (soglia più facile da superare)
         XCTAssertLessThan(punto.moltiplicatoreSoglia, 1.0)
+    }
+    
+    // Test Case 6: Filtro Quota Idonea (>400m) e Griglia Territorio
+    func testFiltroQuotaIdoneaEGriglia() {
+        let dem = DEMService.shared
+        XCTAssertFalse(dem.isQuotaIdonea(quota: 200.0)) // Costa/pianura -> non idonea
+        XCTAssertTrue(dem.isQuotaIdonea(quota: 850.0))  // Faggeta/Castagneto -> idonea
+        
+        let griglia = dem.generaGrigliaTerritorio(stepGradiente: 0.1)
+        XCTAssertFalse(griglia.isEmpty)
     }
 }
