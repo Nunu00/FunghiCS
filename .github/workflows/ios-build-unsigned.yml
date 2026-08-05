@@ -20,7 +20,7 @@ jobs:
         run: |
           xcodebuild test \
             -project FunghiCS.xcodeproj -scheme FunghiCS \
-            -destination "platform=iOS Simulator,name=iPhone 16e,OS=latest"
+            -destination "platform=iOS Simulator,name=iPhone 17"
 
       - name: Archive without signing
         run: |
