@@ -24,6 +24,7 @@
 		10010015 /* PrevisioneEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010015 /* PrevisioneEngineTests.swift */; };
 		10010018 /* SplashScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010018 /* SplashScreenView.swift */; };
 		10010019 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 20010019 /* Assets.xcassets */; };
+		10010020 /* HeatmapOverlayRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010020 /* HeatmapOverlayRenderer.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -57,6 +58,7 @@
 		20010017 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		20010018 /* SplashScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashScreenView.swift; sourceTree = "<group>"; };
 		20010019 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		20010020 /* HeatmapOverlayRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeatmapOverlayRenderer.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -136,6 +138,7 @@
 				20010012 /* ListaPuntiView.swift */,
 				20010013 /* AggiungiOsservazioneView.swift */,
 				20010018 /* SplashScreenView.swift */,
+				20010020 /* HeatmapOverlayRenderer.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -273,6 +276,7 @@
 				10010012 /* ListaPuntiView.swift in Sources */,
 				10010013 /* AggiungiOsservazioneView.swift in Sources */,
 				10010018 /* SplashScreenView.swift in Sources */,
+				10010020 /* HeatmapOverlayRenderer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

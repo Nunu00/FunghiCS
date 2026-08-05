@@ -2,22 +2,12 @@ import SwiftUI
 import MapKit
 import SwiftData
 
-struct PrevisioneCella {
-    let cella: CellaGrigliaTerritorio
-    let previsione: RisultatoPrevisione
-}
-
 struct MappaView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var punti: [PuntoInteresse]
     
-    // Centrato sulla provincia di Cosenza (Sila, Pollino, Catena Costiera)
-    @State private var position: MapCameraPosition = .region(
-        MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: 39.35, longitude: 16.30),
-            span: MKCoordinateSpan(latitudeDelta: 0.95, longitudeDelta: 0.95)
-        )
-    )
+    @State private var mostraMappaDiCalore = true
+    @State private var filtraSoloZoneIdonee = true // Quota >= 800m
     
     @State private var puntoSelezionato: PuntoInteresse? = nil
     @State private var mostrandoFormNuovoPunto = false
@@ -25,68 +15,28 @@ struct MappaView: View {
     @State private var latNuovoPunto = "39.33"
     @State private var lonNuovoPunto = "16.44"
     
-    // Dizionario risultati previsioni sui punti salvati
     @State private var risultatiMeteoPunti: [UUID: RisultatoPrevisione] = [:]
-    
-    // Griglia della Mappa di Calore Continua
-    @State private var cellePrevisioni: [PrevisioneCella] = []
-    
-    // Toggle Layer
-    @State private var mostraMappaDiCalore = true
-    @State private var filtraSoloZoneIdonee = true // Quota >= 800m
     
     var body: some View {
         NavigationStack {
             ZStack {
-                Map(position: $position) {
-                    
-                    // 1. MAPPA DI CALORE OVERLAY FLUIDA E CONTINUA (Senza bordi o linee a scacchiera)
-                    if mostraMappaDiCalore {
-                        ForEach(cellePrevisioni, id: \.cella.id) { item in
-                            if !filtraSoloZoneIdonee || item.cella.idonea {
-                                MapPolygon(coordinates: [
-                                    CLLocationCoordinate2D(latitude: item.cella.minLat, longitude: item.cella.minLon),
-                                    CLLocationCoordinate2D(latitude: item.cella.maxLat, longitude: item.cella.minLon),
-                                    CLLocationCoordinate2D(latitude: item.cella.maxLat, longitude: item.cella.maxLon),
-                                    CLLocationCoordinate2D(latitude: item.cella.minLat, longitude: item.cella.maxLon)
-                                ])
-                                .foregroundStyle(colorePerStato(item.previsione.stato).opacity(0.42))
-                            }
-                        }
+                // MapKit nativo tramite UIViewRepresentable per rendering ultra-fluido a 60fps senza bordi a quadratini
+                MapViewRepresentable(
+                    punti: punti,
+                    risultatiMeteoPunti: risultatiMeteoPunti,
+                    mostraMappaDiCalore: mostraMappaDiCalore,
+                    filtraSoloZoneIdonee: filtraSoloZoneIdonee,
+                    onSelectPunto: { punto in
+                        self.puntoSelezionato = punto
                     }
-                    
-                    // 2. SEGNALINI PUNTI UTENTE
-                    ForEach(punti) { punto in
-                        Annotation(punto.nome, coordinate: CLLocationCoordinate2D(latitude: punto.latitude, longitude: punto.longitude)) {
-                            Button {
-                                puntoSelezionato = punto
-                            } label: {
-                                VStack(spacing: 2) {
-                                    Image(systemName: "mappin.circle.fill")
-                                        .font(.title2)
-                                        .foregroundColor(colorePerPunto(punto))
-                                        .shadow(radius: 3)
-                                    
-                                    let prob = risultatiMeteoPunti[punto.id]?.probabilitaPercentuale ?? calcolaProbabilitaImmediataFallback(punto: punto)
-                                    Text("\(prob)%")
-                                        .font(.caption2)
-                                        .bold()
-                                        .foregroundColor(.white)
-                                        .padding(.horizontal, 5)
-                                        .padding(.vertical, 2)
-                                        .background(colorePerPunto(punto))
-                                        .cornerRadius(6)
-                                }
-                            }
-                        }
-                    }
-                }
+                )
+                .ignoresSafeArea(edges: [.bottom, .horizontal])
                 
-                // Overlay Legenda e Controlli
+                // Controlli Filtri e Legenda in Overlay
                 VStack {
                     HStack {
-                        // Controlli Filtri
-                        VStack(alignment: .leading, spacing: 6) {
+                        // Toggle Filtri
+                        VStack(alignment: .leading, spacing: 8) {
                             Toggle(isOn: $mostraMappaDiCalore) {
                                 Label("Mappa Calore", systemImage: "square.grid.3x3.fill")
                                     .font(.caption).bold()
@@ -101,26 +51,28 @@ struct MappaView: View {
                         }
                         .padding(10)
                         .background(.ultraThinMaterial)
-                        .cornerRadius(10)
-                        .padding(.leading, 10)
+                        .cornerRadius(12)
+                        .shadow(radius: 2)
+                        .padding(.leading, 12)
                         .padding(.top, 10)
                         
                         Spacer()
                         
-                        // Legenda
+                        // Legenda Fruttificazione
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Legenda Fruttificazione")
                                 .font(.caption2)
                                 .bold()
-                            HStack { Circle().fill(.green).frame(width: 8, height: 8); Text("Buttata (>65%)").font(.caption2) }
-                            HStack { Circle().fill(.orange).frame(width: 8, height: 8); Text("Preparazione").font(.caption2) }
-                            HStack { Circle().fill(.yellow).frame(width: 8, height: 8); Text("Esaurimento").font(.caption2) }
-                            HStack { Circle().fill(.gray).frame(width: 8, height: 8); Text("Non fav. (<30%)").font(.caption2) }
+                            HStack { Circle().fill(Color.green).frame(width: 8, height: 8); Text("Buttata (>65%)").font(.caption2) }
+                            HStack { Circle().fill(Color.orange).frame(width: 8, height: 8); Text("Preparazione").font(.caption2) }
+                            HStack { Circle().fill(Color.yellow).frame(width: 8, height: 8); Text("Esaurimento").font(.caption2) }
+                            HStack { Circle().fill(Color.gray).frame(width: 8, height: 8); Text("Non fav. (<30%)").font(.caption2) }
                         }
                         .padding(8)
                         .background(.ultraThinMaterial)
-                        .cornerRadius(10)
-                        .padding(.trailing, 10)
+                        .cornerRadius(12)
+                        .shadow(radius: 2)
+                        .padding(.trailing, 12)
                         .padding(.top, 10)
                     }
                     
@@ -171,60 +123,16 @@ struct MappaView: View {
                 }
             }
             .task {
-                await calcolaMappaDiCaloreEPunti()
+                await calcolaMeteoPunti()
             }
         }
     }
     
-    private func colorePerPunto(_ punto: PuntoInteresse) -> Color {
-        if let res = risultatiMeteoPunti[punto.id] {
-            return res.stato.colore
-        }
-        let meteoIniziale = DatiMeteo(pioggiaCumulata15Giorni: 62.0, temperaturaMedia: 16.5)
-        let resIniziale = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: punto, meteo: meteoIniziale)
-        return resIniziale.stato.colore
-    }
-    
-    private func calcolaProbabilitaImmediataFallback(punto: PuntoInteresse) -> Int {
-        let meteoIniziale = DatiMeteo(pioggiaCumulata15Giorni: 62.0, temperaturaMedia: 16.5)
-        let resIniziale = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: punto, meteo: meteoIniziale)
-        return resIniziale.probabilitaPercentuale
-    }
-    
-    private func colorePerStato(_ stato: StatoFruttificazione) -> Color {
-        return stato.colore
-    }
-    
-    private func calcolaMappaDiCaloreEPunti() async {
+    private func calcolaMeteoPunti() async {
         for punto in punti {
             let meteo = await MeteoService.shared.fetchMeteo(latitude: punto.latitude, longitude: punto.longitude)
             let res = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: punto, meteo: meteo)
             risultatiMeteoPunti[punto.id] = res
-        }
-        
-        Task.detached(priority: .userInitiated) {
-            let celle = DEMService.shared.generaGrigliaTerritorio(stepGradiente: 0.035)
-            var tempCellePrevisioni: [PrevisioneCella] = []
-            let meteoGenerale = DatiMeteo(pioggiaCumulata15Giorni: 64.0, temperaturaMedia: 15.8)
-            
-            for cella in celle {
-                if cella.idonea {
-                    let pTemp = PuntoInteresse(
-                        nome: "Cella",
-                        latitude: cella.centerLat,
-                        longitude: cella.centerLon,
-                        quota: cella.quota,
-                        pendenza: cella.pendenza,
-                        esposizione: cella.esposizione
-                    )
-                    let res = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: pTemp, meteo: meteoGenerale)
-                    tempCellePrevisioni.append(PrevisioneCella(cella: cella, previsione: res))
-                }
-            }
-            
-            await MainActor.run {
-                self.cellePrevisioni = tempCellePrevisioni
-            }
         }
     }
     
@@ -245,5 +153,129 @@ struct MappaView: View {
             let res = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: nuovoPunto, meteo: meteo)
             risultatiMeteoPunti[nuovoPunto.id] = res
         }
+    }
+}
+
+// MARK: - UIViewRepresentable Wrapper per MapKit
+struct MapViewRepresentable: UIViewRepresentable {
+    let punti: [PuntoInteresse]
+    let risultatiMeteoPunti: [UUID: RisultatoPrevisione]
+    let mostraMappaDiCalore: Bool
+    let filtraSoloZoneIdonee: Bool
+    let onSelectPunto: (PuntoInteresse) -> Void
+    
+    func makeUIView(context: Context) -> MKMapView {
+        let mapView = MKMapView(frame: .zero)
+        mapView.delegate = context.coordinator
+        mapView.showsUserLocation = false
+        
+        // Centrato sulla provincia di Cosenza
+        let center = CLLocationCoordinate2D(latitude: 39.35, longitude: 16.30)
+        let span = MKCoordinateSpan(latitudeDelta: 0.95, longitudeDelta: 0.95)
+        mapView.setRegion(MKCoordinateRegion(center: center, span: span), animated: false)
+        
+        // Aggiungi l'overlay della mappa di calore unica sfumata
+        let heatmapOverlay = CosenzaHeatmapOverlay()
+        mapView.addOverlay(heatmapOverlay, level: .aboveRoads)
+        
+        return mapView
+    }
+    
+    func updateUIView(_ mapView: MKMapView, context: Context) {
+        // Aggiorna lo stato del renderer dell'overlay se le impostazioni cambiano
+        if let renderer = context.coordinator.heatmapRenderer {
+            if renderer.mostraMappaCalore != mostraMappaDiCalore || renderer.filtraSoloZoneIdonee != filtraSoloZoneIdonee {
+                renderer.mostraMappaCalore = mostraMappaDiCalore
+                renderer.filtraSoloZoneIdonee = filtraSoloZoneIdonee
+                renderer.invalidateCache()
+            }
+        }
+        
+        // Aggiorna gli annotatori dei punti salvati dall'utente
+        context.coordinator.aggiornaAnnotations(mapView: mapView, punti: punti, risultati: risultatiMeteoPunti)
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+    
+    final class Coordinator: NSObject, MKMapViewDelegate {
+        var parent: MapViewRepresentable
+        var heatmapRenderer: CosenzaHeatmapOverlayRenderer? = nil
+        private var currentPuntiIds: Set<UUID> = []
+        
+        init(parent: MapViewRepresentable) {
+            self.parent = parent
+        }
+        
+        func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            if overlay is CosenzaHeatmapOverlay {
+                let renderer = CosenzaHeatmapOverlayRenderer(overlay: overlay)
+                renderer.mostraMappaCalore = parent.mostraMappaDiCalore
+                renderer.filtraSoloZoneIdonee = parent.filtraSoloZoneIdonee
+                self.heatmapRenderer = renderer
+                return renderer
+            }
+            return MKOverlayRenderer(overlay: overlay)
+        }
+        
+        func aggiornaAnnotations(mapView: MKMapView, punti: [PuntoInteresse], risultati: [UUID: RisultatoPrevisione]) {
+            let pIds = Set(punti.map { $0.id })
+            if pIds == currentPuntiIds { return }
+            currentPuntiIds = pIds
+            
+            // Rimuovi annotation esistenti tranne l'overlay
+            mapView.removeAnnotations(mapView.annotations)
+            
+            for punto in punti {
+                let ann = PuntoAnnotation(punto: punto)
+                mapView.addAnnotation(ann)
+            }
+        }
+        
+        func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            guard let puntoAnn = annotation as? PuntoAnnotation else { return nil }
+            let identifier = "PuntoFunghiAnnotation"
+            
+            var view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
+            if view == nil {
+                view = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+                view?.canShowCallout = true
+            } else {
+                view?.annotation = annotation
+            }
+            
+            let res = parent.risultatiMeteoPunti[puntoAnn.punto.id]
+            let prob = res?.probabilitaPercentuale ?? 60
+            let colore = res?.stato.colore ?? .green
+            
+            view?.glyphText = "\(prob)%"
+            view?.markerTintColor = UIColor(colore)
+            view?.titleVisibility = .visible
+            
+            return view
+        }
+        
+        func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
+            if let puntoAnn = view.annotation as? PuntoAnnotation {
+                parent.onSelectPunto(puntoAnn.punto)
+                mapView.deselectAnnotation(view.annotation, animated: true)
+            }
+        }
+    }
+}
+
+final class PuntoAnnotation: NSObject, MKAnnotation {
+    let punto: PuntoInteresse
+    let coordinate: CLLocationCoordinate2D
+    let title: String?
+    let subtitle: String?
+    
+    init(punto: PuntoInteresse) {
+        self.punto = punto
+        self.coordinate = CLLocationCoordinate2D(latitude: punto.latitude, longitude: punto.longitude)
+        self.title = punto.nome
+        self.subtitle = "Quota: \(Int(punto.quota))m s.l.m."
+        super.init()
     }
 }

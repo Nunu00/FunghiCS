@@ -67,16 +67,21 @@ final class PrevisioneEngineTests: XCTestCase {
         XCTAssertLessThan(punto.moltiplicatoreSoglia, 1.0)
     }
     
-    // Test Case 6: Filtro Quota Idonea (>=800m) e Maschera Mare
+    // Test Case 6: Filtro Quota Idonea (>=800m), Maschera Mare e Heatmap Overlay
     func testFiltroQuotaIdoneaEMascheraMare() {
         let dem = DEMService.shared
         XCTAssertFalse(dem.isQuotaIdonea(quota: 400.0)) // 400m -> sotto la quota di 800m
         XCTAssertTrue(dem.isQuotaIdonea(quota: 950.0))  // 950m -> quota idonea
         
-        // Verfica maschera mare sul Tirreno
+        // Verifica maschera mare sul Tirreno
         XCTAssertTrue(dem.isAreaMareOCosta(lat: 39.5, lon: 15.8, quota: 950.0))
         
-        let griglia = dem.generaGrigliaTerritorio(stepGradiente: 0.1)
-        XCTAssertFalse(griglia.isEmpty)
+        // Verifica orografia DEM per la Sila (quota > 800m)
+        let terrainSila = dem.getTerrainData(latitude: 39.35, longitude: 16.45)
+        XCTAssertGreaterThanOrEqual(terrainSila.quota, 800.0)
+        
+        // Verifica overlay bounding box
+        let overlay = CosenzaHeatmapOverlay()
+        XCTAssertGreaterThan(overlay.boundingMapRect.width, 0)
     }
 }
