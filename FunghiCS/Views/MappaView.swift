@@ -20,75 +20,64 @@ struct MappaView: View {
     )
     
     @State private var puntoSelezionato: PuntoInteresse? = nil
-    @State private var cellaSelezionata: PrevisioneCella? = nil
-    
     @State private var mostrandoFormNuovoPunto = false
-    @State private var coordinataToccata: CLLocationCoordinate2D? = nil
     @State private var nomeNuovoPunto = ""
+    @State private var latNuovoPunto = "39.33"
+    @State private var lonNuovoPunto = "16.44"
     
     // Dizionario risultati previsioni sui punti salvati
     @State private var risultatiMeteoPunti: [UUID: RisultatoPrevisione] = [:]
     
-    // Griglia della Mappa di Calore
+    // Griglia della Mappa di Calore Continua
     @State private var cellePrevisioni: [PrevisioneCella] = []
     
     // Toggle Layer
     @State private var mostraMappaDiCalore = true
-    @State private var filtraSoloZoneIdonee = true // Quota >= 400m
+    @State private var filtraSoloZoneIdonee = true // Quota >= 800m
     
     var body: some View {
         NavigationStack {
             ZStack {
-                MapReader { proxy in
-                    Map(position: $position) {
-                        
-                        // 1. MAPPA DI CALORE OVERLAY (MapPolygon Vettoriali)
-                        if mostraMappaDiCalore {
-                            ForEach(cellePrevisioni, id: \.cella.id) { item in
-                                if !filtraSoloZoneIdonee || item.cella.idonea {
-                                    MapPolygon(coordinates: [
-                                        CLLocationCoordinate2D(latitude: item.cella.minLat, longitude: item.cella.minLon),
-                                        CLLocationCoordinate2D(latitude: item.cella.maxLat, longitude: item.cella.minLon),
-                                        CLLocationCoordinate2D(latitude: item.cella.maxLat, longitude: item.cella.maxLon),
-                                        CLLocationCoordinate2D(latitude: item.cella.minLat, longitude: item.cella.maxLon)
-                                    ])
-                                    .foregroundStyle(colorePerStato(item.previsione.stato).opacity(0.40))
-                                    .stroke(colorePerStato(item.previsione.stato).opacity(0.60), lineWidth: 0.8)
-                                }
-                            }
-                        }
-                        
-                        // 2. SEGNALINI PUNTI UTENTE
-                        ForEach(punti) { punto in
-                            Annotation(punto.nome, coordinate: CLLocationCoordinate2D(latitude: punto.latitude, longitude: punto.longitude)) {
-                                Button {
-                                    puntoSelezionato = punto
-                                } label: {
-                                    VStack(spacing: 2) {
-                                        Image(systemName: "mappin.circle.fill")
-                                            .font(.title2)
-                                            .foregroundColor(colorePerPunto(punto))
-                                            .shadow(radius: 3)
-                                        
-                                        let prob = risultatiMeteoPunti[punto.id]?.probabilitaPercentuale ?? calcolaProbabilitaImmediataFallback(punto: punto)
-                                        Text("\(prob)%")
-                                            .font(.caption2)
-                                            .bold()
-                                            .foregroundColor(.white)
-                                            .padding(.horizontal, 5)
-                                            .padding(.vertical, 2)
-                                            .background(colorePerPunto(punto))
-                                            .cornerRadius(6)
-                                    }
-                                }
+                Map(position: $position) {
+                    
+                    // 1. MAPPA DI CALORE OVERLAY FLUIDA E CONTINUA (Senza bordi a scacchiera)
+                    if mostraMappaDiCalore {
+                        ForEach(cellePrevisioni, id: \.cella.id) { item in
+                            if !filtraSoloZoneIdonee || item.cella.idonea {
+                                MapPolygon(coordinates: [
+                                    CLLocationCoordinate2D(latitude: item.cella.minLat, longitude: item.cella.minLon),
+                                    CLLocationCoordinate2D(latitude: item.cella.maxLat, longitude: item.cella.minLon),
+                                    CLLocationCoordinate2D(latitude: item.cella.maxLat, longitude: item.cella.maxLon),
+                                    CLLocationCoordinate2D(latitude: item.cella.minLat, longitude: item.cella.maxLon)
+                                ])
+                                .foregroundStyle(colorePerStato(item.previsione.stato).opacity(0.42))
                             }
                         }
                     }
-                    .onTapGesture { positionScreen in
-                        if let coord = proxy.convert(positionScreen, from: .local) {
-                            coordinataToccata = coord
-                            nomeNuovoPunto = "Punto Funghi \(punti.count + 1)"
-                            mostrandoFormNuovoPunto = true
+                    
+                    // 2. SEGNALINI PUNTI UTENTE
+                    ForEach(punti) { punto in
+                        Annotation(punto.nome, coordinate: CLLocationCoordinate2D(latitude: punto.latitude, longitude: punto.longitude)) {
+                            Button {
+                                puntoSelezionato = punto
+                            } label: {
+                                VStack(spacing: 2) {
+                                    Image(systemName: "mappin.circle.fill")
+                                        .font(.title2)
+                                        .foregroundColor(colorePerPunto(punto))
+                                        .shadow(radius: 3)
+                                    
+                                    let prob = risultatiMeteoPunti[punto.id]?.probabilitaPercentuale ?? calcolaProbabilitaImmediataFallback(punto: punto)
+                                    Text("\(prob)%")
+                                        .font(.caption2)
+                                        .bold()
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 5)
+                                        .padding(.vertical, 2)
+                                        .background(colorePerPunto(punto))
+                                        .cornerRadius(6)
+                                }
+                            }
                         }
                     }
                 }
@@ -105,7 +94,7 @@ struct MappaView: View {
                             .tint(.green)
                             
                             Toggle(isOn: $filtraSoloZoneIdonee) {
-                                Label("Filtro Quota >400m", systemImage: "mountain.2.fill")
+                                Label("Filtro Quota >800m", systemImage: "mountain.2.fill")
                                     .font(.caption).bold()
                             }
                             .tint(.green)
@@ -138,21 +127,48 @@ struct MappaView: View {
                     Spacer()
                 }
             }
-            .navigationTitle("FunghiCS — Mappa Calore")
+            .navigationTitle("FunghiCS — Previsione Cosenza")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        mostrandoFormNuovoPunto = true
+                    } label: {
+                        Label("Aggiungi Punto", systemImage: "plus.circle.fill")
+                            .font(.headline)
+                    }
+                }
+            }
             .sheet(item: $puntoSelezionato) { punto in
                 DettaglioPuntoView(punto: punto)
             }
-            .alert("Aggiungi Nuovo Punto", isPresented: $mostrandoFormNuovoPunto) {
-                TextField("Nome punto", text: $nomeNuovoPunto)
-                Button("Annulla", role: .cancel) { }
-                Button("Salva") {
-                    if let coord = coordinataToccata {
-                        creaEPopolaPunto(nome: nomeNuovoPunto, lat: coord.latitude, lon: coord.longitude)
+            .sheet(isPresented: $mostrandoFormNuovoPunto) {
+                NavigationStack {
+                    Form {
+                        Section("Dati Nuovo Punto Funghi") {
+                            TextField("Nome Punto (es. Monte Botte Donato)", text: $nomeNuovoPunto)
+                            TextField("Latitudine", text: $latNuovoPunto)
+                                .keyboardType(.decimalPad)
+                            TextField("Longitudine", text: $lonNuovoPunto)
+                                .keyboardType(.decimalPad)
+                        }
+                    }
+                    .navigationTitle("Nuovo Punto")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Annulla") { mostrandoFormNuovoPunto = false }
+                        }
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Salva") {
+                                if let lat = Double(latNuovoPunto), let lon = Double(lonNuovoPunto), !nomeNuovoPunto.isEmpty {
+                                    creaEPopolaPunto(nome: nomeNuovoPunto, lat: lat, lon: lon)
+                                    mostrandoFormNuovoPunto = false
+                                }
+                            }
+                        }
                     }
                 }
-            } message: {
-                Text("Vuoi salvare questo punto di ricerca funghi?")
             }
             .task {
                 await calcolaMappaDiCaloreEPunti()
@@ -160,12 +176,10 @@ struct MappaView: View {
         }
     }
     
-    // Colore immediato per evitare il bug iniziale del blu
     private func colorePerPunto(_ punto: PuntoInteresse) -> Color {
         if let res = risultatiMeteoPunti[punto.id] {
             return res.stato.colore
         }
-        // Fallback calcolato immediatamente sul punto per non mostrare mai il blu
         let meteoIniziale = DatiMeteo(pioggiaCumulata15Giorni: 62.0, temperaturaMedia: 16.5)
         let resIniziale = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: punto, meteo: meteoIniziale)
         return resIniziale.stato.colore
@@ -182,31 +196,29 @@ struct MappaView: View {
     }
     
     private func calcolaMappaDiCaloreEPunti() async {
-        // 1. Calcola previsione per i punti dell'utente
         for punto in punti {
             let meteo = await MeteoService.shared.fetchMeteo(latitude: punto.latitude, longitude: punto.longitude)
             let res = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: punto, meteo: meteo)
             risultatiMeteoPunti[punto.id] = res
         }
         
-        // 2. Genera griglia del territorio e calcola mappa di calore
-        let celle = DEMService.shared.generaGrigliaTerritorio(stepGradiente: 0.03)
+        let celle = DEMService.shared.generaGrigliaTerritorio(stepGradiente: 0.018)
         var tempCellePrevisioni: [PrevisioneCella] = []
-        
-        // Meteo di riferimento provinciale
         let meteoGenerale = await MeteoService.shared.fetchMeteo(latitude: 39.30, longitude: 16.40)
         
         for cella in celle {
-            let pTemp = PuntoInteresse(
-                nome: "Cella",
-                latitude: cella.centerLat,
-                longitude: cella.centerLon,
-                quota: cella.quota,
-                pendenza: cella.pendenza,
-                esposizione: cella.esposizione
-            )
-            let res = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: pTemp, meteo: meteoGenerale)
-            tempCellePrevisioni.append(PrevisioneCella(cella: cella, previsione: res))
+            if cella.idonea {
+                let pTemp = PuntoInteresse(
+                    nome: "Cella",
+                    latitude: cella.centerLat,
+                    longitude: cella.centerLon,
+                    quota: cella.quota,
+                    pendenza: cella.pendenza,
+                    esposizione: cella.esposizione
+                )
+                let res = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: pTemp, meteo: meteoGenerale)
+                tempCellePrevisioni.append(PrevisioneCella(cella: cella, previsione: res))
+            }
         }
         
         await MainActor.run {

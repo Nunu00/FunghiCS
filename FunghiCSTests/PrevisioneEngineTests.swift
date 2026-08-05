@@ -5,7 +5,7 @@ final class PrevisioneEngineTests: XCTestCase {
     
     // Test Case 1: Correzione Quota Alta vs Bassa
     func testCorrezioneQuota() {
-        let puntoBasso = PuntoInteresse(nome: "Basso", latitude: 39.3, longitude: 16.2, quota: 450.0, pendenza: 10.0, esposizione: "N")
+        let puntoBasso = PuntoInteresse(nome: "Basso", latitude: 39.3, longitude: 16.2, quota: 850.0, pendenza: 10.0, esposizione: "N")
         let puntoAlto = PuntoInteresse(nome: "Alto", latitude: 39.3, longitude: 16.5, quota: 1300.0, pendenza: 10.0, esposizione: "N")
         
         let meteo = DatiMeteo(pioggiaCumulata15Giorni: 55.0, temperaturaMedia: 16.0)
@@ -20,8 +20,8 @@ final class PrevisioneEngineTests: XCTestCase {
     
     // Test Case 2: Correzione Esposizione Nord vs Sud
     func testCorrezioneEsposizione() {
-        let puntoNord = PuntoInteresse(nome: "Versante Nord", latitude: 39.3, longitude: 16.3, quota: 800.0, pendenza: 10.0, esposizione: "N")
-        let puntoSud = PuntoInteresse(nome: "Versante Sud", latitude: 39.3, longitude: 16.3, quota: 800.0, pendenza: 10.0, esposizione: "S")
+        let puntoNord = PuntoInteresse(nome: "Versante Nord", latitude: 39.3, longitude: 16.3, quota: 900.0, pendenza: 10.0, esposizione: "N")
+        let puntoSud = PuntoInteresse(nome: "Versante Sud", latitude: 39.3, longitude: 16.3, quota: 900.0, pendenza: 10.0, esposizione: "S")
         
         let meteo = DatiMeteo(pioggiaCumulata15Giorni: 60.0, temperaturaMedia: 16.0)
         
@@ -33,8 +33,8 @@ final class PrevisioneEngineTests: XCTestCase {
     
     // Test Case 3: Correzione Pendenza Ripida vs Pianeggiante
     func testCorrezionePendenza() {
-        let puntoRipido = PuntoInteresse(nome: "Ripido", latitude: 39.3, longitude: 16.3, quota: 800.0, pendenza: 25.0, esposizione: "N")
-        let puntoPiano = PuntoInteresse(nome: "Pianeggiante", latitude: 39.3, longitude: 16.3, quota: 800.0, pendenza: 3.0, esposizione: "N")
+        let puntoRipido = PuntoInteresse(nome: "Ripido", latitude: 39.3, longitude: 16.3, quota: 900.0, pendenza: 25.0, esposizione: "N")
+        let puntoPiano = PuntoInteresse(nome: "Pianeggiante", latitude: 39.3, longitude: 16.3, quota: 900.0, pendenza: 3.0, esposizione: "N")
         
         let meteo = DatiMeteo(pioggiaCumulata15Giorni: 60.0, temperaturaMedia: 16.0)
         
@@ -46,7 +46,7 @@ final class PrevisioneEngineTests: XCTestCase {
     
     // Test Case 4: Stati Temporali Fruttificazione
     func testStatiTemporali() {
-        let punto = PuntoInteresse(nome: "Test Point", latitude: 39.3, longitude: 16.3, quota: 800.0, pendenza: 10.0, esposizione: "N")
+        let punto = PuntoInteresse(nome: "Test Point", latitude: 39.3, longitude: 16.3, quota: 900.0, pendenza: 10.0, esposizione: "N")
         
         let meteoButtata = DatiMeteo(pioggiaCumulata15Giorni: 70.0, temperaturaMedia: 16.0, giorniDaUltimaPioggiaSignificativa: 5)
         let resButtata = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: punto, meteo: meteoButtata)
@@ -67,11 +67,14 @@ final class PrevisioneEngineTests: XCTestCase {
         XCTAssertLessThan(punto.moltiplicatoreSoglia, 1.0)
     }
     
-    // Test Case 6: Filtro Quota Idonea (>400m) e Griglia Territorio
-    func testFiltroQuotaIdoneaEGriglia() {
+    // Test Case 6: Filtro Quota Idonea (>=800m) e Maschera Mare
+    func testFiltroQuotaIdoneaEMascheraMare() {
         let dem = DEMService.shared
-        XCTAssertFalse(dem.isQuotaIdonea(quota: 200.0)) // Costa/pianura -> non idonea
-        XCTAssertTrue(dem.isQuotaIdonea(quota: 850.0))  // Faggeta/Castagneto -> idonea
+        XCTAssertFalse(dem.isQuotaIdonea(quota: 400.0)) // 400m -> sotto la quota di 800m
+        XCTAssertTrue(dem.isQuotaIdonea(quota: 950.0))  // 950m -> quota idonea
+        
+        // Verfica maschera mare sul Tirreno
+        XCTAssertTrue(dem.isAreaMareOCosta(lat: 39.5, lon: 15.8, quota: 950.0))
         
         let griglia = dem.generaGrigliaTerritorio(stepGradiente: 0.1)
         XCTAssertFalse(griglia.isEmpty)
