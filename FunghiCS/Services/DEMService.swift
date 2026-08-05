@@ -65,20 +65,12 @@ final class DEMService {
     
     /// Maschera geografica rigorosa per escludere il mare ed i litorali (Tirreno e Jonio)
     func isAreaMareOCosta(lat: Double, lon: Double, quota: Double) -> Bool {
-        // Se la quota è sotto gli 800m è già non idonea
         if quota < 800.0 { return true }
-        
-        // Esclusione lato Tirreno (Costa di Scalea, Cetraro, Paola, Amantea)
         if lon < 15.95 { return true }
-        
-        // Esclusione lato Jonio (Costa di Roseto, Sibari, Rossano, Cariati)
         if lon > 16.60 { return true }
-        
-        // Piana di Sibari (bassa altitudine/pianura agricola)
         if lat > 39.65 && lat < 39.85 && lon > 16.25 && lon < 16.55 && quota < 800.0 {
             return true
         }
-        
         return false
     }
     
@@ -108,8 +100,8 @@ final class DEMService {
         }
     }
     
-    /// Genera una griglia ad alta densità per una mappa di calore fluida e continua (senza bordi a scacchiera)
-    func generaGrigliaTerritorio(stepGradiente: Double = 0.018) -> [CellaGrigliaTerritorio] {
+    /// Genera la griglia ad altissime prestazioni per la mappa di calore fluida e continua
+    func generaGrigliaTerritorio(stepGradiente: Double = 0.035) -> [CellaGrigliaTerritorio] {
         let minLat = 39.05
         let maxLat = 40.15
         let minLon = 15.85
@@ -118,8 +110,7 @@ final class DEMService {
         var celle: [CellaGrigliaTerritorio] = []
         var lat = minLat
         
-        // Margine di sovrapposizione per eliminare linee di separazione tra celle
-        let overlap = 0.003
+        let overlap = 0.004
         
         while lat < maxLat {
             var lon = minLon
@@ -131,20 +122,22 @@ final class DEMService {
                 let eMare = isAreaMareOCosta(lat: centerLat, lon: centerLon, quota: terrain.quota)
                 let idonea = !eMare && isQuotaIdonea(quota: terrain.quota)
                 
-                let cella = CellaGrigliaTerritorio(
-                    id: "cell_\(String(format: "%.4f", lat))_\(String(format: "%.4f", lon))",
-                    minLat: lat - overlap,
-                    maxLat: lat + stepGradiente + overlap,
-                    minLon: lon - overlap,
-                    maxLon: lon + stepGradiente + overlap,
-                    centerLat: centerLat,
-                    centerLon: centerLon,
-                    quota: terrain.quota,
-                    pendenza: terrain.pendenza,
-                    esposizione: terrain.esposizione,
-                    idonea: idonea
-                )
-                celle.append(cella)
+                if idonea {
+                    let cella = CellaGrigliaTerritorio(
+                        id: "cell_\(String(format: "%.3f", lat))_\(String(format: "%.3f", lon))",
+                        minLat: lat - overlap,
+                        maxLat: lat + stepGradiente + overlap,
+                        minLon: lon - overlap,
+                        maxLon: lon + stepGradiente + overlap,
+                        centerLat: centerLat,
+                        centerLon: centerLon,
+                        quota: terrain.quota,
+                        pendenza: terrain.pendenza,
+                        esposizione: terrain.esposizione,
+                        idonea: true
+                    )
+                    celle.append(cella)
+                }
                 lon += stepGradiente
             }
             lat += stepGradiente
@@ -154,22 +147,15 @@ final class DEMService {
     }
     
     private func fallbackTerrain(lat: Double, lon: Double) -> (quota: Double, pendenza: Double, esposizione: String) {
-        var quota = 200.0 // Bassa quota di default per escludere zone non montane
+        var quota = 200.0
         
-        // Massiccio del Pollino
         if lat >= 39.75 && lat <= 40.10 && lon >= 16.00 && lon <= 16.35 {
             quota = 1250.0
-        }
-        // Sila Grande e Piccola
-        else if lat >= 39.15 && lat <= 39.55 && lon >= 16.25 && lon <= 16.70 {
+        } else if lat >= 39.15 && lat <= 39.55 && lon >= 16.25 && lon <= 16.70 {
             quota = 1350.0
-        }
-        // Catena Costiera alti passi (Fagnano, Monte Cocuzzo)
-        else if lat >= 39.20 && lat <= 39.60 && lon >= 16.00 && lon <= 16.15 {
+        } else if lat >= 39.20 && lat <= 39.60 && lon >= 16.00 && lon <= 16.15 {
             quota = 920.0
-        }
-        // Serre Cosentine
-        else if lat >= 39.05 && lat <= 39.20 && lon >= 16.15 && lon <= 16.40 {
+        } else if lat >= 39.05 && lat <= 39.20 && lon >= 16.15 && lon <= 16.40 {
             quota = 880.0
         }
         

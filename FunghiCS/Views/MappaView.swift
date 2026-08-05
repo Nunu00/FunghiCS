@@ -40,7 +40,7 @@ struct MappaView: View {
             ZStack {
                 Map(position: $position) {
                     
-                    // 1. MAPPA DI CALORE OVERLAY FLUIDA E CONTINUA (Senza bordi a scacchiera)
+                    // 1. MAPPA DI CALORE OVERLAY FLUIDA E CONTINUA (Senza bordi o linee a scacchiera)
                     if mostraMappaDiCalore {
                         ForEach(cellePrevisioni, id: \.cella.id) { item in
                             if !filtraSoloZoneIdonee || item.cella.idonea {
@@ -202,27 +202,29 @@ struct MappaView: View {
             risultatiMeteoPunti[punto.id] = res
         }
         
-        let celle = DEMService.shared.generaGrigliaTerritorio(stepGradiente: 0.018)
-        var tempCellePrevisioni: [PrevisioneCella] = []
-        let meteoGenerale = await MeteoService.shared.fetchMeteo(latitude: 39.30, longitude: 16.40)
-        
-        for cella in celle {
-            if cella.idonea {
-                let pTemp = PuntoInteresse(
-                    nome: "Cella",
-                    latitude: cella.centerLat,
-                    longitude: cella.centerLon,
-                    quota: cella.quota,
-                    pendenza: cella.pendenza,
-                    esposizione: cella.esposizione
-                )
-                let res = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: pTemp, meteo: meteoGenerale)
-                tempCellePrevisioni.append(PrevisioneCella(cella: cella, previsione: res))
+        Task.detached(priority: .userInitiated) {
+            let celle = DEMService.shared.generaGrigliaTerritorio(stepGradiente: 0.035)
+            var tempCellePrevisioni: [PrevisioneCella] = []
+            let meteoGenerale = DatiMeteo(pioggiaCumulata15Giorni: 64.0, temperaturaMedia: 15.8)
+            
+            for cella in celle {
+                if cella.idonea {
+                    let pTemp = PuntoInteresse(
+                        nome: "Cella",
+                        latitude: cella.centerLat,
+                        longitude: cella.centerLon,
+                        quota: cella.quota,
+                        pendenza: cella.pendenza,
+                        esposizione: cella.esposizione
+                    )
+                    let res = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: pTemp, meteo: meteoGenerale)
+                    tempCellePrevisioni.append(PrevisioneCella(cella: cella, previsione: res))
+                }
             }
-        }
-        
-        await MainActor.run {
-            self.cellePrevisioni = tempCellePrevisioni
+            
+            await MainActor.run {
+                self.cellePrevisioni = tempCellePrevisioni
+            }
         }
     }
     
