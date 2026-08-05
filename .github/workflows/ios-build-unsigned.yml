@@ -1,0 +1,46 @@
+name: Build Unsigned IPA
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Resolve Swift Package dependencies
+        run: xcodebuild -resolvePackageDependencies -project FunghiCS.xcodeproj -scheme FunghiCS
+
+      - name: Run unit tests
+        run: |
+          xcodebuild test \
+            -project FunghiCS.xcodeproj -scheme FunghiCS \
+            -destination "platform=iOS Simulator,name=iPhone 15"
+
+      - name: Archive without signing
+        run: |
+          xcodebuild archive \
+            -project FunghiCS.xcodeproj -scheme FunghiCS \
+            -configuration Release \
+            -archivePath $PWD/build/FunghiCS.xcarchive \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+
+      - name: Package unsigned IPA
+        run: |
+          cd build/FunghiCS.xcarchive/Products/Applications
+          mkdir Payload
+          mv FunghiCS.app Payload/
+          zip -r ../../../FunghiCS.ipa Payload
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FunghiCS-unsigned-ipa
+          path: build/FunghiCS.ipa
+          retention-days: 90

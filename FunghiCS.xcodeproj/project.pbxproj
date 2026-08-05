@@ -1,0 +1,530 @@
+// !$*RAVE*!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		10010001 /* FunghiCSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010001 /* FunghiCSApp.swift */; };
+		10010002 /* PuntoInteresse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010002 /* PuntoInteresse.swift */; };
+		10010003 /* Osservazione.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010003 /* Osservazione.swift */; };
+		10010004 /* DatiMeteo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010004 /* DatiMeteo.swift */; };
+		10010005 /* RisultatoPrevisione.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010005 /* RisultatoPrevisione.swift */; };
+		10010006 /* PrevisioneEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010006 /* PrevisioneEngine.swift */; };
+		10010007 /* DEMService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010007 /* DEMService.swift */; };
+		10010008 /* MeteoService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010008 /* MeteoService.swift */; };
+		10010009 /* NotificheService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010009 /* NotificheService.swift */; };
+		10010010 /* MappaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010010 /* MappaView.swift */; };
+		10010011 /* DettaglioPuntoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010011 /* DettaglioPuntoView.swift */; };
+		10010012 /* ListaPuntiView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010012 /* ListaPuntiView.swift */; };
+		10010013 /* AggiungiOsservazioneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010013 /* AggiungiOsservazioneView.swift */; };
+		10010014 /* cosenza_dem.json in Resources */ = {isa = PBXBuildFile; fileRef = 20010014 /* cosenza_dem.json */; };
+		10010015 /* PrevisioneEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010015 /* PrevisioneEngineTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		30010001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 00010000 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 40010000;
+			remoteInfo = FunghiCS;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		20010000 /* FunghiCS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FunghiCS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		20010001 /* FunghiCSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FunghiCSApp.swift; sourceTree = "<group>"; };
+		20010002 /* PuntoInteresse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PuntoInteresse.swift; sourceTree = "<group>"; };
+		20010003 /* Osservazione.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Osservazione.swift; sourceTree = "<group>"; };
+		20010004 /* DatiMeteo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatiMeteo.swift; sourceTree = "<group>"; };
+		20010005 /* RisultatoPrevisione.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RisultatoPrevisione.swift; sourceTree = "<group>"; };
+		20010006 /* PrevisioneEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrevisioneEngine.swift; sourceTree = "<group>"; };
+		20010007 /* DEMService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DEMService.swift; sourceTree = "<group>"; };
+		20010008 /* MeteoService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeteoService.swift; sourceTree = "<group>"; };
+		20010009 /* NotificheService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificheService.swift; sourceTree = "<group>"; };
+		20010010 /* MappaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MappaView.swift; sourceTree = "<group>"; };
+		20010011 /* DettaglioPuntoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DettaglioPuntoView.swift; sourceTree = "<group>"; };
+		20010012 /* ListaPuntiView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListaPuntiView.swift; sourceTree = "<group>"; };
+		20010013 /* AggiungiOsservazioneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AggiungiOsservazioneView.swift; sourceTree = "<group>"; };
+		20010014 /* cosenza_dem.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = cosenza_dem.json; sourceTree = "<group>"; };
+		20010015 /* PrevisioneEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrevisioneEngineTests.swift; sourceTree = "<group>"; };
+		20010016 /* FunghiCSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FunghiCSTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		20010017 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		50010000 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		50010001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		00000000 /* Main Group */ = {
+			isa = PBXGroup;
+			children = (
+				60010000 /* FunghiCS */,
+				60010005 /* FunghiCSTests */,
+				60010006 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		60010000 /* FunghiCS */ = {
+			isa = PBXGroup;
+			children = (
+				60010001 /* App */,
+				60010002 /* Models */,
+				60010003 /* Services */,
+				60010004 /* Views */,
+				60010007 /* Resources */,
+			);
+			path = FunghiCS;
+			sourceTree = "<group>";
+		};
+		60010001 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				20010001 /* FunghiCSApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		60010002 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				20010002 /* PuntoInteresse.swift */,
+				20010003 /* Osservazione.swift */,
+				20010004 /* DatiMeteo.swift */,
+				20010005 /* RisultatoPrevisione.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		60010003 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				20010006 /* PrevisioneEngine.swift */,
+				20010007 /* DEMService.swift */,
+				20010008 /* MeteoService.swift */,
+				20010009 /* NotificheService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		60010004 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				20010010 /* MappaView.swift */,
+				20010011 /* DettaglioPuntoView.swift */,
+				20010012 /* ListaPuntiView.swift */,
+				20010013 /* AggiungiOsservazioneView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		60010005 /* FunghiCSTests */ = {
+			isa = PBXGroup;
+			children = (
+				20010015 /* PrevisioneEngineTests.swift */,
+			);
+			path = FunghiCSTests;
+			sourceTree = "<group>";
+		};
+		60010006 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				20010000 /* FunghiCS.app */,
+				20010016 /* FunghiCSTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		60010007 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				20010014 /* cosenza_dem.json */,
+				20010017 /* Info.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		40010000 /* FunghiCS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 70010000 /* Build configuration list for PBXNativeTarget "FunghiCS" */;
+			buildPhases = (
+				80010000 /* Sources */,
+				50010000 /* Frameworks */,
+				80010001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FunghiCS;
+			productName = FunghiCS;
+			productReference = 20010000 /* FunghiCS.app */;
+			productType = "com.apple.product-type.application";
+		};
+		40010001 /* FunghiCSTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 70010003 /* Build configuration list for PBXNativeTarget "FunghiCSTests" */;
+			buildPhases = (
+				80010002 /* Sources */,
+				50010001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				30010000 /* PBXTargetDependency */,
+			);
+			name = FunghiCSTests;
+			productName = FunghiCSTests;
+			productReference = 20010016 /* FunghiCSTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		00010000 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1530;
+				LastUpgradeCheck = 1530;
+				TargetAttributes = {
+					40010000 = {
+						CreatedOnToolsVersion = 15.3;
+					};
+					40010001 = {
+						CreatedOnToolsVersion = 15.3;
+						TestTargetID = 40010000;
+					};
+				};
+			};
+			buildConfigurationList = 70010006 /* Build configuration list for PBXProject "FunghiCS" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = it;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				it,
+				Base,
+			);
+			mainGroup = 00000000 /* Main Group */;
+			productRefGroup = 60010006 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				40010000 /* FunghiCS */,
+				40010001 /* FunghiCSTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		80010001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				10010014 /* cosenza_dem.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		80010000 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				10010001 /* FunghiCSApp.swift in Sources */,
+				10010002 /* PuntoInteresse.swift in Sources */,
+				10010003 /* Osservazione.swift in Sources */,
+				10010004 /* DatiMeteo.swift in Sources */,
+				10010005 /* RisultatoPrevisione.swift in Sources */,
+				10010006 /* PrevisioneEngine.swift in Sources */,
+				10010007 /* DEMService.swift in Sources */,
+				10010008 /* MeteoService.swift in Sources */,
+				10010009 /* NotificheService.swift in Sources */,
+				10010010 /* MappaView.swift in Sources */,
+				10010011 /* DettaglioPuntoView.swift in Sources */,
+				10010012 /* ListaPuntiView.swift in Sources */,
+				10010013 /* AggiungiOsservazioneView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		80010002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				10010002 /* PuntoInteresse.swift in Sources */,
+				10010003 /* Osservazione.swift in Sources */,
+				10010004 /* DatiMeteo.swift in Sources */,
+				10010005 /* RisultatoPrevisione.swift in Sources */,
+				10010006 /* PrevisioneEngine.swift in Sources */,
+				10010015 /* PrevisioneEngineTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		30010000 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 40010000 /* FunghiCS */;
+			targetProxy = 30010001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		70010001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FunghiCS/Resources/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.antigravity.funghiCS;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		70010002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FunghiCS/Resources/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.antigravity.funghiCS;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		70010004 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.antigravity.funghiCSTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FunghiCS.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/FunghiCS";
+			};
+			name = Debug;
+		};
+		70010005 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.antigravity.funghiCSTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FunghiCS.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/FunghiCS";
+			};
+			name = Release;
+		};
+		70010007 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		70010008 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		70010000 /* Build configuration list for PBXNativeTarget "FunghiCS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				70010001 /* Debug */,
+				70010002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		70010003 /* Build configuration list for PBXNativeTarget "FunghiCSTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				70010004 /* Debug */,
+				70010005 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		70010006 /* Build configuration list for PBXProject "FunghiCS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				70010007 /* Debug */,
+				70010008 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 00010000 /* Project object */;
+}

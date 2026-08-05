@@ -1,0 +1,78 @@
+import XCTest
+@testable import FunghiCS
+
+final class PrevisioneEngineTests: XCTestCase {
+    
+    // Test Case 1: Correzione Quota Alta vs Bassa
+    func testCorrezioneQuota() {
+        let puntoBasso = PuntoInteresse(nome: "Basso", latitude: 39.3, longitude: 16.2, quota: 400.0, pendenza: 10.0, esposizione: "N")
+        let puntoAlto = PuntoInteresse(nome: "Alto", latitude: 39.3, longitude: 16.5, quota: 1300.0, pendenza: 10.0, esposizione: "N")
+        
+        let meteo = DatiMeteo(pioggiaCumulata15Giorni: 55.0, temperaturaMedia: 16.0)
+        
+        let resBasso = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: puntoBasso, meteo: meteo)
+        let resAlto = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: puntoAlto, meteo: meteo)
+        
+        // Quota alta ha soglia ridotta del 10% (54mm vs 60mm) e ritardo quota impostato
+        XCTAssertEqual(resAlto.ritardoGiorniQuota, 14)
+        XCTAssertEqual(resBasso.ritardoGiorniQuota, 0)
+        XCTAssertLessThan(resAlto.sogliaRichiesta, resBasso.sogliaRichiesta)
+    }
+    
+    // Test Case 2: Correzione Esposizione Nord vs Sud
+    func testCorrezioneEsposizione() {
+        let puntoNord = PuntoInteresse(nome: "Versante Nord", latitude: 39.3, longitude: 16.3, quota: 800.0, pendenza: 10.0, esposizione: "N")
+        let puntoSud = PuntoInteresse(nome: "Versante Sud", latitude: 39.3, longitude: 16.3, quota: 800.0, pendenza: 10.0, esposizione: "S")
+        
+        let meteo = DatiMeteo(pioggiaCumulata15Giorni: 60.0, temperaturaMedia: 16.0)
+        
+        let resNord = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: puntoNord, meteo: meteo)
+        let resSud = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: puntoSud, meteo: meteo)
+        
+        // Il versante sud richiede il +15% di pioggia a causa dell'evaporazione
+        XCTAssertGreaterThan(resSud.sogliaRichiesta, resNord.sogliaRichiesta)
+    }
+    
+    // Test Case 3: Correzione Pendenza Ripida vs Pianeggiante
+    func testCorrezionePendenza() {
+        let puntoRipido = PuntoInteresse(nome: "Ripido", latitude: 39.3, longitude: 16.3, quota: 800.0, pendenza: 25.0, esposizione: "N")
+        let puntoPiano = PuntoInteresse(nome: "Pianeggiante", latitude: 39.3, longitude: 16.3, quota: 800.0, pendenza: 3.0, esposizione: "N")
+        
+        let meteo = DatiMeteo(pioggiaCumulata15Giorni: 60.0, temperaturaMedia: 16.0)
+        
+        let resRipido = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: puntoRipido, meteo: meteo)
+        let resPiano = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: puntoPiano, meteo: meteo)
+        
+        // Pendenza > 20° aumenta la soglia richiesta per via del dilavamento
+        XCTAssertGreaterThan(resRipido.sogliaRichiesta, resPiano.sogliaRichiesta)
+    }
+    
+    // Test Case 4: Stati Temporali Fruttificazione
+    func testStatiTemporali() {
+        let punto = PuntoInteresse(nome: "Test Point", latitude: 39.3, longitude: 16.3, quota: 800.0, pendenza: 10.0, esposizione: "N")
+        
+        // Pioggia sufficiente (70mm > 60mm) con 5 giorni dall'ultima pioggia -> Buttata Probabile
+        let meteoButtata = DatiMeteo(pioggiaCumulata15Giorni: 70.0, temperaturaMedia: 16.0, giorniDaUltimaPioggiaSignificativa: 5)
+        let resButtata = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: punto, meteo: meteoButtata)
+        XCTAssertEqual(resButtata.stato, .buttataProbabile)
+        
+        // Pioggia scarse (20mm < 60mm) -> Non Favorevole
+        let meteoScarsa = DatiMeteo(pioggiaCumulata15Giorni: 20.0, temperaturaMedia: 16.0, giorniDaUltimaPioggiaSignificativa: 5)
+        let resScarsa = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: punto, meteo: meteoScarsa)
+        XCTAssertEqual(resScarsa.stato, .nonFavorevole)
+    }
+    
+    // Test Case 5: Ricalibrazione con Osservazioni Utente
+    func testCalibrazioneUtente() {
+        let punto = PuntoInteresse(nome: "Test Calibrazione", latitude: 39.3, longitude: 16.3, moltiplicatoreSoglia: 1.0)
+        
+        // Aggiungi un'osservazione positiva (trovato funghi)
+        let obsPos = Osservazione(data: Date(), trovato: true, quantitaKg: 1.5, specie: "Porcino", punto: punto)
+        punto.osservazioni.append(obsPos)
+        
+        PrevisioneEngine.ricalibraMoltiplicatore(punto: punto)
+        
+        // Il moltiplicatore deve essersi abbassato (soglia più facile da superare)
+        XCTAssertLessThan(punto.moltiplicatoreSoglia, 1.0)
+    }
+}
