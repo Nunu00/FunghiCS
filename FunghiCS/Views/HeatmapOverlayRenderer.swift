@@ -1,6 +1,7 @@
 import Foundation
 import MapKit
 import UIKit
+import CoreGraphics
 
 final class CosenzaHeatmapOverlay: NSObject, MKOverlay {
     let boundingMapRect: MKMapRect
@@ -77,7 +78,7 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
         let lonSpan = CosenzaHeatmapOverlay.maxLon - CosenzaHeatmapOverlay.minLon
         
         for y in 0..<height {
-            // Nota: nei sistemi di coordinate grafiche Y cresce verso il basso (MaxLat in alto -> y = 0)
+            // Nota: Y cresce verso il basso nei sistemi di coordinate grafiche
             let lat = CosenzaHeatmapOverlay.maxLat - (Double(y) / Double(height)) * latSpan
             
             for x in 0..<width {
@@ -159,7 +160,10 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
         let colorSpace = CGColorSpaceCreateDeviceRGB()
         let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)
         
-        guard let dataProvider = CGDataProvider(data: Data(bytes: &sfumato, count: sfumato.count)) else { return nil }
+        guard let cfData = CFDataCreate(kCFAllocatorDefault, &sfumato, sfumato.count),
+              let dataProvider = CGDataProvider(data: cfData) else {
+            return nil
+        }
         
         return CGImage(
             width: width,
@@ -176,15 +180,13 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
         )
     }
     
-    /// Sfocatura box-blur 3x3 a passaggio singolo per eliminare bordi rigidi
+    /// Sfocatura box-blur 3x3 per eliminare bordi rigidi
     private func sfocaBitmap(pixels: [UInt8], width: Int, height: Int) -> [UInt8] {
         var output = pixels
         
         for y in 1..<(height - 1) {
             for x in 1..<(width - 1) {
                 let idx = (y * width + x) * 4
-                
-                // Se il pixel corrente è trasparente (mare o ignorato), non sfocare sui bordi esterni
                 if pixels[idx + 3] == 0 { continue }
                 
                 var rSum = 0, gSum = 0, bSum = 0, aSum = 0
