@@ -20,7 +20,7 @@ struct MappaView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // MapKit nativo tramite UIViewRepresentable per rendering ultra-fluido a 60fps senza bordi a quadratini
+                // MapKit nativo tramite UIViewRepresentable per rendering ultra-fluido a 60fps
                 MapViewRepresentable(
                     punti: punti,
                     risultatiMeteoPunti: risultatiMeteoPunti,
@@ -174,21 +174,31 @@ struct MapViewRepresentable: UIViewRepresentable {
         let span = MKCoordinateSpan(latitudeDelta: 0.95, longitudeDelta: 0.95)
         mapView.setRegion(MKCoordinateRegion(center: center, span: span), animated: false)
         
-        // Aggiungi l'overlay della mappa di calore unica sfumata
-        let heatmapOverlay = CosenzaHeatmapOverlay()
-        mapView.addOverlay(heatmapOverlay, level: .aboveRoads)
+        if mostraMappaDiCalore {
+            let heatmapOverlay = CosenzaHeatmapOverlay()
+            mapView.addOverlay(heatmapOverlay, level: .aboveRoads)
+        }
+        
+        context.coordinator.lastMostraMappa = mostraMappaDiCalore
+        context.coordinator.lastFiltraZone = filtraSoloZoneIdonee
         
         return mapView
     }
     
     func updateUIView(_ mapView: MKMapView, context: Context) {
-        // Aggiorna lo stato del renderer dell'overlay se le impostazioni cambiano
-        if let renderer = context.coordinator.heatmapRenderer {
-            if renderer.mostraMappaCalore != mostraMappaDiCalore || renderer.filtraSoloZoneIdonee != filtraSoloZoneIdonee {
-                renderer.mostraMappaCalore = mostraMappaDiCalore
-                renderer.filtraSoloZoneIdonee = filtraSoloZoneIdonee
-                renderer.invalidateCache()
+        // Se lo stato dei toggle cambia, rimuovi e ri-aggiungi l'overlay per FORZARE il ridisegno immediato a schermo!
+        if context.coordinator.lastMostraMappa != mostraMappaDiCalore || context.coordinator.lastFiltraZone != filtraSoloZoneIdonee {
+            context.coordinator.lastMostraMappa = mostraMappaDiCalore
+            context.coordinator.lastFiltraZone = filtraSoloZoneIdonee
+            
+            mapView.removeOverlays(mapView.overlays)
+            if mostraMappaDiCalore {
+                let heatmapOverlay = CosenzaHeatmapOverlay()
+                mapView.addOverlay(heatmapOverlay, level: .aboveRoads)
             }
+        } else if let renderer = context.coordinator.heatmapRenderer {
+            renderer.mostraMappaCalore = mostraMappaDiCalore
+            renderer.filtraSoloZoneIdonee = filtraSoloZoneIdonee
         }
         
         // Aggiorna gli annotatori dei punti salvati dall'utente
@@ -202,6 +212,8 @@ struct MapViewRepresentable: UIViewRepresentable {
     final class Coordinator: NSObject, MKMapViewDelegate {
         var parent: MapViewRepresentable
         var heatmapRenderer: CosenzaHeatmapOverlayRenderer? = nil
+        var lastMostraMappa: Bool = true
+        var lastFiltraZone: Bool = true
         private var currentPuntiIds: Set<UUID> = []
         
         init(parent: MapViewRepresentable) {
@@ -224,7 +236,6 @@ struct MapViewRepresentable: UIViewRepresentable {
             if pIds == currentPuntiIds { return }
             currentPuntiIds = pIds
             
-            // Rimuovi annotation esistenti tranne l'overlay
             mapView.removeAnnotations(mapView.annotations)
             
             for punto in punti {

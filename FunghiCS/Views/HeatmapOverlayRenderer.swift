@@ -62,23 +62,27 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
         context.setAllowsAntialiasing(true)
         context.interpolationQuality = .high
         
-        context.draw(cgImage, in: drawRect)
+        // CORREZIONE FONDAMENTALE ASSE Y: ribalta l'immagine in verticale affinché il Nord (Pollino) vada in alto ed il Sud in basso!
+        context.translateBy(x: drawRect.origin.x, y: drawRect.origin.y + drawRect.size.height)
+        context.scaleBy(x: 1.0, y: -1.0)
+        let localDrawRect = CGRect(x: 0, y: 0, width: drawRect.size.width, height: drawRect.size.height)
+        
+        context.draw(cgImage, in: localDrawRect)
         context.restoreGState()
     }
     
-    /// Genera la mappa di calore come bitmap sfumata continua (senza bordi a quadratini)
+    /// Genera la mappa di calore come bitmap sfumata continua (orientata correttamente Nord-Sud)
     private func generaBitmapCaloreContinuo() -> CGImage? {
         let width = 220
         let height = 240
         
         var pixels = [UInt8](repeating: 0, count: width * height * 4)
-        let meteoGenerale = DatiMeteo(pioggiaCumulata15Giorni: 64.0, temperaturaMedia: 15.8)
         
         let latSpan = CosenzaHeatmapOverlay.maxLat - CosenzaHeatmapOverlay.minLat
         let lonSpan = CosenzaHeatmapOverlay.maxLon - CosenzaHeatmapOverlay.minLon
         
         for y in 0..<height {
-            // Nota: Y cresce verso il basso nei sistemi di coordinate grafiche
+            // Nota: y = 0 corrisponde al Nord (MaxLat), y = height corrisponde al Sud (MinLat)
             let lat = CosenzaHeatmapOverlay.maxLat - (Double(y) / Double(height)) * latSpan
             
             for x in 0..<width {
@@ -100,20 +104,25 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
                 } else if !isIdonea {
                     // Bassa quota (<800m)
                     if filtraSoloZoneIdonee {
-                        // Se il filtro >800m è ATTIVO: 100% Trasparente
+                        // Se il filtro >800m è ATTIVO: 100% Trasparente!
                         pixels[idx]     = 0
                         pixels[idx + 1] = 0
                         pixels[idx + 2] = 0
                         pixels[idx + 3] = 0
                     } else {
-                        // Se il filtro >800m è DISATTIVATO: Grigio/Azzurro trasparente
-                        pixels[idx]     = 180 // R
-                        pixels[idx + 1] = 190 // G
-                        pixels[idx + 2] = 210 // B
-                        pixels[idx + 3] = 70  // Alpha
+                        // Se il filtro >800m è DISATTIVATO: Grigio/Azzurro trasparente per evidenziare il cambio di stato!
+                        pixels[idx]     = 160 // R
+                        pixels[idx + 1] = 180 // G
+                        pixels[idx + 2] = 220 // B
+                        pixels[idx + 3] = 80  // Alpha
                     }
                 } else {
-                    // Zona Montana/Boschiva (>=800m s.l.m.) -> Calcolo Probabilità Fruttificazione
+                    // Zona Montana/Boschiva (>=800m s.l.m.) -> Calcolo Probabilità Fruttificazione Micro-Climatica
+                    let pioggiaQuota = min(90.0, 52.0 + (quota / 40.0)) // Pioggia di montagna
+                    let tempQuota = max(8.0, 22.0 - (quota / 150.0))    // Gradiente termico (-0.65°C / 100m)
+                    
+                    let meteoLocale = DatiMeteo(pioggiaCumulata15Giorni: pioggiaQuota, temperaturaMedia: tempQuota, giorniDaUltimaPioggiaSignificativa: 4)
+                    
                     let pTemp = PuntoInteresse(
                         nome: "Pixel",
                         latitude: lat,
@@ -122,29 +131,29 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
                         pendenza: terrain.pendenza,
                         esposizione: terrain.esposizione
                     )
-                    let res = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: pTemp, meteo: meteoGenerale)
+                    let res = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: pTemp, meteo: meteoLocale)
                     let prob = res.probabilitaPercentuale
                     
                     if prob >= 65 {
-                        // Verde Buttata Probabile
+                        // Verde Buttata Probabile (>65%)
                         pixels[idx]     = 34  // R
                         pixels[idx + 1] = 197 // G
                         pixels[idx + 2] = 94  // B
-                        pixels[idx + 3] = 150 // Alpha
-                    } else if prob >= 45 {
-                        // Arancione In Preparazione
+                        pixels[idx + 3] = 160 // Alpha
+                    } else if prob >= 48 {
+                        // Arancione In Preparazione (48-64%)
                         pixels[idx]     = 249 // R
                         pixels[idx + 1] = 115 // G
                         pixels[idx + 2] = 22  // B
-                        pixels[idx + 3] = 150 // Alpha
+                        pixels[idx + 3] = 160 // Alpha
                     } else if prob >= 30 {
-                        // Giallo In Esaurimento
+                        // Giallo In Esaurimento (30-47%)
                         pixels[idx]     = 234 // R
                         pixels[idx + 1] = 179 // G
                         pixels[idx + 2] = 8   // B
                         pixels[idx + 3] = 150 // Alpha
                     } else {
-                        // Grigio Non Favorevole
+                        // Grigio Non Favorevole (<30%)
                         pixels[idx]     = 156 // R
                         pixels[idx + 1] = 163 // G
                         pixels[idx + 2] = 175 // B
@@ -154,7 +163,7 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
             }
         }
         
-        // Applicazione filtro di sfocatura per rendere la mappa termica 100% continua e senza bordi
+        // Applicazione sfocatura box-blur per una mappa termica fluida senza bordi
         var sfumato = sfocaBitmap(pixels: pixels, width: width, height: height)
         
         let colorSpace = CGColorSpaceCreateDeviceRGB()
