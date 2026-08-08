@@ -14,15 +14,6 @@ struct FunghiCSApp: App {
 
         do {
             let container = try ModelContainer(for: schema, configurations: [modelConfiguration])
-            
-            Task { @MainActor in
-                let context = container.mainContext
-                let descriptor = FetchDescriptor<PuntoInteresse>()
-                if let count = try? context.fetchCount(descriptor), count == 0 {
-                    puntiInizialiEsempio().forEach { context.insert($0) }
-                }
-            }
-            
             return container
         } catch {
             fatalError("Impossibile creare ModelContainer SwiftData: \(error)")

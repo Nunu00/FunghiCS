@@ -6,8 +6,8 @@ struct MappaView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var punti: [PuntoInteresse]
     
-    @State private var mostraMappaDiCalore = true
-    // Filtro quota >800m permanentemente abilitato di default
+    // Mappa di calore e filtro quota permanentemente attivi
+    private let mostraMappaDiCalore = true
     private let filtraSoloZoneIdonee = true
     
     @State private var puntoSelezionato: PuntoInteresse? = nil
@@ -21,7 +21,7 @@ struct MappaView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // MapKit nativo tramite UIViewRepresentable per rendering ultra-fluido
+                // MapKit nativo tramite UIViewRepresentable per rendering ultra-fluido e tocchi diretti sulla mappa
                 MapViewRepresentable(
                     punti: punti,
                     risultatiMeteoPunti: risultatiMeteoPunti,
@@ -33,24 +33,9 @@ struct MappaView: View {
                 )
                 .ignoresSafeArea(edges: [.bottom, .horizontal])
                 
-                // Controlli Filtri e Legenda in Overlay
+                // Legenda Fruttificazione in Overlay
                 VStack {
                     HStack {
-                        // Toggle Mappa Calore
-                        VStack(alignment: .leading, spacing: 8) {
-                            Toggle(isOn: $mostraMappaDiCalore) {
-                                Label("Mappa Calore", systemImage: "square.grid.3x3.fill")
-                                    .font(.caption).bold()
-                            }
-                            .tint(.green)
-                        }
-                        .padding(10)
-                        .background(.ultraThinMaterial)
-                        .cornerRadius(12)
-                        .shadow(radius: 2)
-                        .padding(.leading, 12)
-                        .padding(.top, 10)
-                        
                         Spacer()
                         
                         // Legenda Fruttificazione
@@ -119,12 +104,11 @@ struct MappaView: View {
             }
             .task {
                 calcolaPrevisioneInizialePunti()
-                await calcolaMeteoPuntiLive()
             }
         }
     }
     
-    /// Calcola la previsione live per tutti i punti affinché i segnalini mostrino la percentuale reale fin dal primo istante
+    /// Calcola la previsione live per i punti salvati dell'utente
     private func calcolaPrevisioneInizialePunti() {
         Task {
             await calcolaMeteoPuntiLive()
@@ -156,13 +140,12 @@ struct MappaView: View {
         )
         modelContext.insert(nuovoPunto)
         
-        let meteoStimato = DatiMeteo(pioggiaCumulata15Giorni: 58.0, temperaturaMedia: 16.5, giorniDaUltimaPioggiaSignificativa: 4)
-        risultatiMeteoPunti[nuovoPunto.id] = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: nuovoPunto, meteo: meteoStimato)
-        
         Task {
             let meteo = await MeteoService.shared.fetchMeteo(latitude: lat, longitude: lon)
             let res = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: nuovoPunto, meteo: meteo)
-            risultatiMeteoPunti[nuovoPunto.id] = res
+            await MainActor.run {
+                risultatiMeteoPunti[nuovoPunto.id] = res
+            }
         }
     }
 }
@@ -189,8 +172,11 @@ struct MapViewRepresentable: UIViewRepresentable {
             mapView.addOverlay(heatmapOverlay, level: .aboveRoads)
         }
         
-        context.coordinator.lastMostraMappa = mostraMappaDiCalore
+        // Riconoscitore di tocchi diretti sulla mappa di calore
+        let tapGesture = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleMapTap(_:)))
+        mapView.addGestureRecognizer(tapGesture)
         
+        context.coordinator.lastMostraMappa = mostraMappaDiCalore
         return mapView
     }
     
@@ -221,6 +207,45 @@ struct MapViewRepresentable: UIViewRepresentable {
         
         init(parent: MapViewRepresentable) {
             self.parent = parent
+        }
+        
+        @objc func handleMapTap(_ gesture: UITapGestureRecognizer) {
+            guard let mapView = gesture.view as? MKMapView else { return }
+            let touchPoint = gesture.location(in: mapView)
+            
+            // Se l'utente ha toccato un'annotazione esistente, lasciala gestire a MapKit
+            for ann in mapView.annotations {
+                if let view = mapView.view(for: ann) {
+                    let frameInMap = view.convert(view.bounds, to: mapView)
+                    if frameInMap.contains(touchPoint) {
+                        return
+                    }
+                }
+            }
+            
+            let coordinate = mapView.convert(touchPoint, toCoordinateFrom: mapView)
+            let lat = coordinate.latitude
+            let lon = coordinate.longitude
+            
+            let terrain = DEMService.shared.getTerrainData(latitude: lat, longitude: lon)
+            
+            let nomePunto: String
+            if terrain.quota >= 800 {
+                nomePunto = "Punto Toccatо (\(Int(terrain.quota))m s.l.m.)"
+            } else {
+                nomePunto = "Punto Toccatо (\(Int(terrain.quota))m s.l.m. - Bassa Quota)"
+            }
+            
+            let puntoToccato = PuntoInteresse(
+                nome: nomePunto,
+                latitude: lat,
+                longitude: lon,
+                quota: terrain.quota,
+                pendenza: terrain.pendenza,
+                esposizione: terrain.esposizione
+            )
+            
+            parent.onSelectPunto(puntoToccato)
         }
         
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
@@ -274,7 +299,6 @@ struct MapViewRepresentable: UIViewRepresentable {
             }
             
             view?.titleVisibility = .visible
-            
             return view
         }
         
