@@ -130,7 +130,7 @@ final class DEMService {
         }
         
         if let punto = migliorPunto {
-            let clc = punto.clcClass ?? "CLC_311"
+            let clc = punto.clcClass ?? (punto.elevation >= 800.0 ? "CLC_312_Coniferous_Pine_Forest" : "CLC_211")
             let kv = punto.elevation >= 800.0 ? 1.0 : (punto.kVeg ?? 0.0)
             let soil = punto.soilType ?? "sandy_granite"
             
@@ -141,8 +141,8 @@ final class DEMService {
             case "CLC_311_Broadleaved_Beech_Forest": nomeVeg = "Fagjeta Alta Quota"
             case "CLC_313_Mixed_Forest": nomeVeg = "Bosco Misto (Faggio/Abete/Pino)"
             case "CLC_324_Transitional_Woodland": nomeVeg = "Macchia Pedemontana / Arbusteto"
-            case "CLC_512_Water_Bodies": nomeVeg = "Area Silana / Bacino Lacustre"
-            case "CLC_332_Bare_Rock_Screes": nomeVeg = "Area Sommitale Pollino"
+            case "CLC_512_Water_Bodies": nomeVeg = "Superficie Lacustre / Lago"
+            case "CLC_332_Bare_Rock_Screes": nomeVeg = "Roccia Nuda / Ghiaione Sommitale"
             default: nomeVeg = kv > 0 ? "Bosco Montano Naturale" : "Zona Non Boschiva"
             }
             

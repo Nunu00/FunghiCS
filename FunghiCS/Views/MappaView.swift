@@ -1,6 +1,7 @@
 import SwiftUI
 import MapKit
 import SwiftData
+import UIKit
 
 struct MappaView: View {
     @Environment(\.modelContext) private var modelContext
@@ -17,6 +18,11 @@ struct MappaView: View {
     @State private var nomeNuovoPunto = ""
     @State private var latNuovoPunto = "39.33"
     @State private var lonNuovoPunto = "16.44"
+    
+    @State private var mostrandoCSVExport = false
+    @State private var testoCSVGenerato = ""
+    @State private var messaggioNotifica = ""
+    @State private var mostraNotificaCopiato = false
     
     @State private var risultatiMeteoPunti: [UUID: RisultatoPrevisione] = [:]
     
@@ -84,10 +90,38 @@ struct MappaView: View {
                     
                     Spacer()
                 }
+                
+                // Toast di Notifica Copia CSV
+                if mostraNotificaCopiato {
+                    VStack {
+                        Spacer()
+                        Text(messaggioNotifica)
+                            .font(.subheadline)
+                            .bold()
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background(Color.black.opacity(0.85))
+                            .cornerRadius(20)
+                            .shadow(radius: 5)
+                            .padding(.bottom, 30)
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
             .navigationTitle("FunghiCS — Previsione Cosenza")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        generaECollegaCSVDebug()
+                    } label: {
+                        Label("Esporta CSV", systemImage: "doc.text.fill")
+                            .font(.caption)
+                            .bold()
+                    }
+                }
+                
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         mostrandoFormNuovoPunto = true
@@ -99,6 +133,46 @@ struct MappaView: View {
             }
             .sheet(item: $puntoSelezionato) { punto in
                 DettaglioPuntoView(punto: punto)
+            }
+            .sheet(isPresented: $mostrandoCSVExport) {
+                NavigationStack {
+                    VStack(spacing: 12) {
+                        Text("Copia ed incolla il testo sottostante nella chat per consentire l'analisi del modello:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal)
+                            .padding(.top, 8)
+                        
+                        TextEditor(text: $testoCSVGenerato)
+                            .font(.system(.caption2, design: .monospaced))
+                            .padding(8)
+                            .background(Color(.secondarySystemBackground))
+                            .cornerRadius(8)
+                            .padding(.horizontal)
+                        
+                        Button {
+                            UIPasteboard.general.string = testoCSVGenerato
+                            mostraToast("✅ CSV copiato negli appunti!")
+                        } label: {
+                            Label("Copia CSV negli Appunti", systemImage: "doc.on.doc.fill")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.blue)
+                                .cornerRadius(12)
+                        }
+                        .padding(.horizontal)
+                        .padding(.bottom, 12)
+                    }
+                    .navigationTitle("📋 Export CSV Debug Mappa")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Chiudi") { mostrandoCSVExport = false }
+                        }
+                    }
+                }
             }
             .sheet(isPresented: $mostrandoFormNuovoPunto) {
                 NavigationStack {
@@ -120,15 +194,15 @@ struct MappaView: View {
                             Button("Salva") {
                                 if let lat = Double(latNuovoPunto), let lon = Double(lonNuovoPunto) {
                                     let terrain = DEMService.shared.getTerrainData(latitude: lat, longitude: lon)
-                                    let p = PuntoInteresse(
-                                        nome: nomeNuovoPunto.isEmpty ? "Punto Personalizzato" : nomeNuovoPunto,
+                                    let nuovo = PuntoInteresse(
+                                        nome: nomeNuovoPunto.isEmpty ? "Punto Salvato" : nomeNuovoPunto,
                                         latitude: lat,
                                         longitude: lon,
                                         quota: terrain.quota,
                                         pendenza: terrain.pendenza,
                                         esposizione: terrain.esposizione
                                     )
-                                    modelContext.insert(p)
+                                    modelContext.insert(nuovo)
                                     mostrandoFormNuovoPunto = false
                                     nomeNuovoPunto = ""
                                 }
@@ -139,9 +213,100 @@ struct MappaView: View {
             }
         }
     }
+    
+    /// Genera la matrice CSV di debug per i nodi meteo/orografici e la copia negli appunti dell'iPhone
+    private func generaECollegaCSVDebug() {
+        var csvLines: [String] = []
+        csvLines.append("Lat,Lon,Quota,Pendenza,Esposizione,CLC_Class,K_veg,SoilType,Pioggia15gg,SogliaCalc,RapportoP,GiorniSenzaPioggia,TempSuolo,DeltaT,UmiditaSuolo,VentoMax,Probabilita,Stato,Messaggio")
+        
+        let nodi = MeteoService.nodiGrigliaSpaziale
+        
+        if nodi.isEmpty {
+            // Se la griglia meteo è ancora in corso di caricamento, usa i punti campione di riferimento
+            let campioni = [
+                (39.1875, 16.4375, "Lorica / Sila Sud (54.6mm)"),
+                (39.1250, 16.5000, "Lago Ampollino / Trepido (53.4mm)"),
+                (39.2500, 16.4375, "Camigliatello / Botte Donato (37.0mm)"),
+                (39.3300, 16.4400, "Sila Grande Nord (22.0mm)"),
+                (39.9375, 16.1875, "Pollino Sommita (25.4mm)")
+            ]
+            
+            for c in campioni {
+                let lat = c.0
+                let lon = c.1
+                let terrain = DEMService.shared.getTerrainData(latitude: lat, longitude: lon)
+                let meteo = DatiMeteo(
+                    pioggiaCumulata15Giorni: 54.6,
+                    temperaturaMedia: 15.0,
+                    umiditaMedia: 65.0,
+                    umiditaSuoloMiceliare: 0.28,
+                    temperaturaSuolo: 15.0,
+                    deltaTSuolo: 4.0,
+                    velocitaVentoMax: 11.0,
+                    evapotraspirazioneET0: 2.5,
+                    giorniDaUltimaPioggiaSignificativa: 5
+                )
+                let pTemp = PuntoInteresse(nome: c.2, latitude: lat, longitude: lon, quota: terrain.quota, pendenza: terrain.pendenza, esposizione: terrain.esposizione)
+                let res = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: pTemp, meteo: meteo)
+                
+                let line = String(format: "%.4f,%.4f,%.1f,%.1f,%@,%@,%.2f,%@,%.1f,%.1f,%.2f,%d,%.1f,%.1f,%.2f,%.1f,%d,%@,\"%@\"",
+                                  lat, lon, terrain.quota, terrain.pendenza, terrain.esposizione, terrain.clcClass, terrain.kVeg, terrain.soilType,
+                                  meteo.pioggiaCumulata15Giorni, res.sogliaRichiesta, meteo.pioggiaCumulata15Giorni / max(1.0, res.sogliaRichiesta),
+                                  meteo.giorniDaUltimaPioggiaSignificativa, meteo.temperaturaSuolo, meteo.deltaTSuolo, meteo.umiditaSuoloMiceliare,
+                                  meteo.velocitaVentoMax, res.probabilitaPercentuale, String(describing: res.stato), res.messaggioDettagliato)
+                csvLines.append(line)
+            }
+        } else {
+            for n in nodi {
+                let lat = n.lat
+                let lon = n.lon
+                let terrain = DEMService.shared.getTerrainData(latitude: lat, longitude: lon)
+                let meteo = DatiMeteo(
+                    pioggiaCumulata15Giorni: n.pioggia15gg,
+                    temperaturaMedia: n.tempMedia,
+                    umiditaMedia: 65.0,
+                    umiditaSuoloMiceliare: n.pioggia15gg >= 50.0 ? 0.32 : (n.pioggia15gg >= 30.0 ? 0.25 : 0.16),
+                    temperaturaSuolo: n.tempMedia,
+                    deltaTSuolo: n.pioggia15gg >= 45.0 ? 4.0 : 0.0,
+                    velocitaVentoMax: 10.0,
+                    evapotraspirazioneET0: 2.5,
+                    giorniDaUltimaPioggiaSignificativa: n.giorniDaPioggia
+                )
+                let pTemp = PuntoInteresse(nome: "Nodo Meteo", latitude: lat, longitude: lon, quota: terrain.quota, pendenza: terrain.pendenza, esposizione: terrain.esposizione)
+                let res = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: pTemp, meteo: meteo)
+                
+                let line = String(format: "%.4f,%.4f,%.1f,%.1f,%@,%@,%.2f,%@,%.1f,%.1f,%.2f,%d,%.1f,%.1f,%.2f,%.1f,%d,%@,\"%@\"",
+                                  lat, lon, terrain.quota, terrain.pendenza, terrain.esposizione, terrain.clcClass, terrain.kVeg, terrain.soilType,
+                                  meteo.pioggiaCumulata15Giorni, res.sogliaRichiesta, n.pioggia15gg / max(1.0, res.sogliaRichiesta),
+                                  n.giorniDaPioggia, meteo.temperaturaSuolo, meteo.deltaTSuolo, meteo.umiditaSuoloMiceliare,
+                                  meteo.velocitaVentoMax, res.probabilitaPercentuale, String(describing: res.stato), res.messaggioDettagliato)
+                csvLines.append(line)
+            }
+        }
+        
+        let csvCompleto = csvLines.joined(separator: "\n")
+        self.testoCSVGenerato = csvCompleto
+        
+        // Copia automatica negli appunti di iOS
+        UIPasteboard.general.string = csvCompleto
+        mostrandoCSVExport = true
+        mostraToast("📋 CSV di Debug copiato negli appunti!")
+    }
+    
+    private func mostraToast(_ messaggio: String) {
+        self.messaggioNotifica = messaggio
+        withAnimation {
+            self.mostraNotificaCopiato = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            withAnimation {
+                self.mostraNotificaCopiato = false
+            }
+        }
+    }
 }
 
-// Representable MapKit Nativo
+// MARK: - UIViewRepresentable MKMapView
 struct MapViewRepresentable: UIViewRepresentable {
     let punti: [PuntoInteresse]
     let risultatiMeteoPunti: [UUID: RisultatoPrevisione]
@@ -152,18 +317,18 @@ struct MapViewRepresentable: UIViewRepresentable {
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
         mapView.delegate = context.coordinator
+        mapView.showsUserLocation = true
+        mapView.mapType = .standard
         
-        let center = CLLocationCoordinate2D(latitude: 39.30, longitude: 16.45)
-        let span = MKCoordinateSpan(latitudeDelta: 0.90, longitudeDelta: 0.90)
+        // Inquadratura iniziale sulla Provincia di Cosenza e Sila
+        let center = CLLocationCoordinate2D(latitude: 39.33, longitude: 16.44)
+        let span = MKCoordinateSpan(latitudeDelta: 0.9, longitudeDelta: 0.9)
         let region = MKCoordinateRegion(center: center, span: span)
         mapView.setRegion(region, animated: false)
         
-        mapView.showsUserLocation = true
-        mapView.isRotateEnabled = true
-        mapView.isPitchEnabled = true
-        
-        let overlay = CosenzaHeatmapOverlay()
-        mapView.addOverlay(overlay, level: .aboveLabels)
+        // Aggiunta dell'Overlay Mappa di Calore Fruttificazione / Precipitazioni
+        let heatmapOverlay = CosenzaHeatmapOverlay()
+        mapView.addOverlay(heatmapOverlay, level: .aboveRoads)
         
         let tapGesture = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleMapTap(_:)))
         mapView.addGestureRecognizer(tapGesture)
@@ -171,14 +336,12 @@ struct MapViewRepresentable: UIViewRepresentable {
         return mapView
     }
     
-    func updateUIView(_ mapView: MKMapView, context: Context) {
-        let existingAnnotations = mapView.annotations.filter { !($0 is MKUserLocation) }
-        mapView.removeAnnotations(existingAnnotations)
+    func updateUIView(_ uiView: MKMapView, context: Context) {
+        let currentAnnotations = uiView.annotations.compactMap { $0 as? PuntoAnnotation }
+        uiView.removeAnnotations(currentAnnotations)
         
-        for p in punti {
-            let anno = PuntoAnnotation(punto: p)
-            mapView.addAnnotation(anno)
-        }
+        let newAnnotations = punti.map { PuntoAnnotation(punto: $0) }
+        uiView.addAnnotations(newAnnotations)
     }
     
     func makeCoordinator() -> Coordinator {
@@ -190,11 +353,29 @@ struct MapViewRepresentable: UIViewRepresentable {
         
         init(_ parent: MapViewRepresentable) {
             self.parent = parent
+            super.init()
+            
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(handleHeatmapDataUpdated),
+                name: .heatmapDataUpdated,
+                object: nil
+            )
         }
         
-        @objc func handleMapTap(_ gesture: UITapGestureRecognizer) {
-            guard let mapView = gesture.view as? MKMapView else { return }
-            let touchPoint = gesture.location(in: mapView)
+        deinit {
+            NotificationCenter.default.removeObserver(self)
+        }
+        
+        @objc private func handleHeatmapDataUpdated() {
+            DispatchQueue.main.async {
+                // Forziamo il ridisegno dell'overlay MapKit nativo
+            }
+        }
+        
+        @objc func handleMapTap(_ gestureRecognizer: UITapGestureRecognizer) {
+            guard let mapView = gestureRecognizer.view as? MKMapView else { return }
+            let touchPoint = gestureRecognizer.location(in: mapView)
             
             for annotation in mapView.annotations {
                 if let view = mapView.view(for: annotation) {
