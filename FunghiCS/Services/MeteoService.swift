@@ -6,6 +6,11 @@ struct NodoMeteoSpaziale {
     let pioggia15gg: Double
     let tempMedia: Double
     let giorniDaPioggia: Int
+    let umiditaSuoloMiceliare: Double
+    let temperaturaSuolo: Double
+    let deltaTSuolo: Double
+    let velocitaVentoMax: Double
+    let evapotraspirazioneET0: Double
 }
 
 actor MeteoService {
@@ -24,6 +29,11 @@ actor MeteoService {
             var pioggiaPesata = 0.0
             var tempPesata = 0.0
             var giorniDaPioggiaPesati = 0.0
+            var umiditaSuoloPesata = 0.0
+            var tempSuoloPesata = 0.0
+            var deltaTPesato = 0.0
+            var ventoPesato = 0.0
+            var et0Pesata = 0.0
             
             for n in nodi {
                 let d2 = (n.lat - latitude)*(n.lat - latitude) + (n.lon - longitude)*(n.lon - longitude)
@@ -32,28 +42,38 @@ actor MeteoService {
                 pioggiaPesata += n.pioggia15gg * w
                 tempPesata += n.tempMedia * w
                 giorniDaPioggiaPesati += Double(n.giorniDaPioggia) * w
+                umiditaSuoloPesata += n.umiditaSuoloMiceliare * w
+                tempSuoloPesata += n.temperaturaSuolo * w
+                deltaTPesato += n.deltaTSuolo * w
+                ventoPesato += n.velocitaVentoMax * w
+                et0Pesata += n.evapotraspirazioneET0 * w
             }
             
             if pesoTotale > 0 {
                 let p15 = pioggiaPesata / pesoTotale
                 let tMed = tempPesata / pesoTotale
                 let gPioggia = Int(round(giorniDaPioggiaPesati / pesoTotale))
+                let sm = umiditaSuoloPesata / pesoTotale
+                let st = tempSuoloPesata / pesoTotale
+                let dt = deltaTPesato / pesoTotale
+                let wMax = ventoPesato / pesoTotale
+                let et0 = et0Pesata / pesoTotale
                 
                 return DatiMeteo(
                     pioggiaCumulata15Giorni: p15,
                     temperaturaMedia: tMed,
                     umiditaMedia: 65.0,
-                    umiditaSuoloMiceliare: p15 >= 50.0 ? 0.32 : (p15 >= 30.0 ? 0.25 : 0.16),
-                    temperaturaSuolo: tMed,
-                    deltaTSuolo: p15 >= 45.0 ? 4.0 : 0.0,
-                    velocitaVentoMax: 10.0,
-                    evapotraspirazioneET0: 2.5,
+                    umiditaSuoloMiceliare: sm,
+                    temperaturaSuolo: st,
+                    deltaTSuolo: dt,
+                    velocitaVentoMax: wMax,
+                    evapotraspirazioneET0: et0,
                     giorniDaUltimaPioggiaSignificativa: gPioggia
                 )
             }
         }
         
-        let urlString = "https://api.open-meteo.com/v1/forecast?latitude=\(latitude)&longitude=\(longitude)&daily=precipitation_sum,temperature_2m_max,temperature_2m_min&hourly=relative_humidity_2m,soil_moisture_0_to_1cm&past_days=16&forecast_days=7&timezone=Europe/Rome"
+        let urlString = "https://api.open-meteo.com/v1/forecast?latitude=\(latitude)&longitude=\(longitude)&daily=precipitation_sum,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,et0_fao_evapotranspiration&hourly=relative_humidity_2m,soil_moisture_3_to_9cm,soil_temperature_0_to_10cm&past_days=16&forecast_days=1&timezone=Europe/Rome"
         
         guard let url = URL(string: urlString) else {
             return DatiMeteo(pioggiaCumulata15Giorni: 38.0, temperaturaMedia: 16.0, giorniDaUltimaPioggiaSignificativa: 4)
@@ -72,6 +92,7 @@ actor MeteoService {
     }
     
     /// Scarica in UN'UNICA CHIAMATA HTTP la griglia meteo a 100 NODI CONCENTRATI ESCLUSIVAMENTE SULLE ZONE MONTANE >=800m s.l.m.
+    /// Inclusi i dati REALI Open-Meteo per Umidità Suolo (3-9cm), DeltaT Suolo, Vento ed Evapotraspirazione ET0
     func fetchGrigliaMeteoSpaziale() async -> [NodoMeteoSpaziale] {
         let puntiMontani = DEMService.shared.getPuntiMontaniIdonei()
         guard !puntiMontani.isEmpty else { return [] }
@@ -89,7 +110,7 @@ actor MeteoService {
         let latStr = coords.map { String(format: "%.4f", $0.lat) }.joined(separator: ",")
         let lonStr = coords.map { String(format: "%.4f", $0.lon) }.joined(separator: ",")
         
-        let urlString = "https://api.open-meteo.com/v1/forecast?latitude=\(latStr)&longitude=\(lonStr)&daily=precipitation_sum,temperature_2m_max,temperature_2m_min&past_days=16&forecast_days=1&timezone=Europe/Rome"
+        let urlString = "https://api.open-meteo.com/v1/forecast?latitude=\(latStr)&longitude=\(lonStr)&daily=precipitation_sum,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,et0_fao_evapotranspiration&hourly=relative_humidity_2m,soil_moisture_3_to_9cm,soil_temperature_0_to_10cm&past_days=16&forecast_days=1&timezone=Europe/Rome"
         
         guard let url = URL(string: urlString) else { return [] }
         
@@ -107,13 +128,18 @@ actor MeteoService {
                     lon: item.longitude,
                     pioggia15gg: meteo.pioggiaCumulata15Giorni,
                     tempMedia: meteo.temperaturaMedia,
-                    giorniDaPioggia: meteo.giorniDaUltimaPioggiaSignificativa
+                    giorniDaPioggia: meteo.giorniDaUltimaPioggiaSignificativa,
+                    umiditaSuoloMiceliare: meteo.umiditaSuoloMiceliare,
+                    temperaturaSuolo: meteo.temperaturaSuolo,
+                    deltaTSuolo: meteo.deltaTSuolo,
+                    velocitaVentoMax: meteo.velocitaVentoMax,
+                    evapotraspirazioneET0: meteo.evapotraspirazioneET0
                 )
                 nodi.append(nodo)
             }
             
             MeteoService.nodiGrigliaSpaziale = nodi
-            print("✅ Scaricati con successo \(nodi.count) nodi Radar/Satellite CONCENTRATI IN MONTAGNA (>=800m)!")
+            print("✅ Scaricati con successo \(nodi.count) nodi Radar/Satellite con dati REALI Open-Meteo per Umidità Suolo e Shock Termico!")
             
             // Rigenera le bitmap della mappa di calore fruttificazione e pioggia con la nuova griglia meteo reale
             let nuovaBitmapFrutt = await PrevisioneEngine.generaHeatmapBitmap()

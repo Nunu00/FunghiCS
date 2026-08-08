@@ -260,12 +260,22 @@ struct MappaView: View {
                     var pioggiaLocale = 38.0
                     var tempBase = 16.5
                     var giorniDaPioggia = 4
+                    var umiditaSuolo = 0.25
+                    var tempSuolo = 15.0
+                    var deltaTSuolo = 0.0
+                    var ventoMax = 10.0
+                    var et0Val = 2.5
                     
                     if !nodi.isEmpty {
                         var pesoTotale = 0.0
                         var pioggiaPesata = 0.0
                         var tempPesata = 0.0
                         var giorniDaPioggiaPesati = 0.0
+                        var smPesata = 0.0
+                        var stPesata = 0.0
+                        var dtPesato = 0.0
+                        var ventoPesato = 0.0
+                        var et0Pesata = 0.0
                         
                         for n in nodi {
                             let d2 = (n.lat - lat)*(n.lat - lat) + (n.lon - lon)*(n.lon - lon)
@@ -274,12 +284,22 @@ struct MappaView: View {
                             pioggiaPesata += n.pioggia15gg * w
                             tempPesata += n.tempMedia * w
                             giorniDaPioggiaPesati += Double(n.giorniDaPioggia) * w
+                            smPesata += n.umiditaSuoloMiceliare * w
+                            stPesata += n.temperaturaSuolo * w
+                            dtPesato += n.deltaTSuolo * w
+                            ventoPesato += n.velocitaVentoMax * w
+                            et0Pesata += n.evapotraspirazioneET0 * w
                         }
                         
                         if pesoTotale > 0 {
                             pioggiaLocale = pioggiaPesata / pesoTotale
                             tempBase = tempPesata / pesoTotale
                             giorniDaPioggia = Int(round(giorniDaPioggiaPesati / pesoTotale))
+                            umiditaSuolo = smPesata / pesoTotale
+                            tempSuolo = stPesata / pesoTotale
+                            deltaTSuolo = dtPesato / pesoTotale
+                            ventoMax = ventoPesato / pesoTotale
+                            et0Val = et0Pesata / pesoTotale
                         }
                     }
                     
@@ -288,11 +308,11 @@ struct MappaView: View {
                         pioggiaCumulata15Giorni: pioggiaLocale,
                         temperaturaMedia: tempQuota,
                         umiditaMedia: 65.0,
-                        umiditaSuoloMiceliare: pioggiaLocale >= 50.0 ? 0.32 : (pioggiaLocale >= 30.0 ? 0.25 : 0.16),
-                        temperaturaSuolo: tempQuota,
-                        deltaTSuolo: pioggiaLocale >= 45.0 ? 4.0 : 0.0,
-                        velocitaVentoMax: 10.0,
-                        evapotraspirazioneET0: 2.5,
+                        umiditaSuoloMiceliare: umiditaSuolo,
+                        temperaturaSuolo: tempSuolo,
+                        deltaTSuolo: deltaTSuolo,
+                        velocitaVentoMax: ventoMax,
+                        evapotraspirazioneET0: et0Val,
                         giorniDaUltimaPioggiaSignificativa: giorniDaPioggia
                     )
                     
