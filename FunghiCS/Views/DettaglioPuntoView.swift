@@ -187,7 +187,7 @@ struct DettaglioPuntoView: View {
                             Text(obs.data.formatted(date: .abbreviated, time: .shortened))
                                 .font(.caption).bold()
                             if obs.trovato {
-                                Text("Trovato: \(String(format: "%.1f", obs.quantitaKg)) kg (\(obs.specie))")
+                                Text("Trovato: \(String(format: "%.1f", obs.quantitaKg ?? 0.0)) kg (\(obs.specie))")
                                     .font(.caption)
                             } else {
                                 Text("Nessun fungo trovato")
