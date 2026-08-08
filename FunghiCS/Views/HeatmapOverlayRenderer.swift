@@ -96,12 +96,30 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
         context.restoreGState()
     }
     
-    /// Genera la mappa di calore a 450x450 pixel usando CGContext in memoria sicura
+    /// Genera la mappa di calore a 450x450 pixel allocando memoria nativa heap via CGContext(data: nil)
     private func generaBitmapCaloreContinuo() -> CGImage? {
         let width = 450
         let height = 450
+        let bytesPerRow = width * 4
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
         
-        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        // Allocazione nativa gestita da CoreGraphics (data: nil) -> Previene deallocazioni premature e crash al ritorno alla home
+        guard let bitmapContext = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow,
+            space: colorSpace,
+            bitmapInfo: bitmapInfo
+        ) else {
+            return nil
+        }
+        
+        guard let rawPointer = bitmapContext.data else { return nil }
+        let pixels = rawPointer.bindMemory(to: UInt8.self, capacity: width * height * 4)
+        
         let overlayRect = self.overlay.boundingMapRect
         
         for y in 0..<height {
@@ -186,48 +204,32 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
                     let prob = res.probabilitaPercentuale
                     
                     if prob >= 65 {
-                        // Verde Buttata Probabile (>65%)
+                        // Verde Buttata Probabile (>65%) - Opacità 200 per massima visibilità
                         pixels[idx]     = 34  // R
                         pixels[idx + 1] = 197 // G
                         pixels[idx + 2] = 94  // B
-                        pixels[idx + 3] = 160 // Alpha
+                        pixels[idx + 3] = 200 // Alpha
                     } else if prob >= 48 {
                         // Arancione In Preparazione (48-64%)
                         pixels[idx]     = 249 // R
                         pixels[idx + 1] = 115 // G
                         pixels[idx + 2] = 22  // B
-                        pixels[idx + 3] = 160 // Alpha
+                        pixels[idx + 3] = 200 // Alpha
                     } else if prob >= 30 {
                         // Giallo In Esaurimento (30-47%)
                         pixels[idx]     = 234 // R
                         pixels[idx + 1] = 179 // G
                         pixels[idx + 2] = 8   // B
-                        pixels[idx + 3] = 150 // Alpha
+                        pixels[idx + 3] = 190 // Alpha
                     } else {
                         // Grigio Non Favorevole (<30%)
                         pixels[idx]     = 156 // R
                         pixels[idx + 1] = 163 // G
                         pixels[idx + 2] = 175 // B
-                        pixels[idx + 3] = 110 // Alpha
+                        pixels[idx + 3] = 140 // Alpha
                     }
                 }
             }
-        }
-        
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
-        let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
-        
-        // Creazione di CGContext nativo thread-safe e memory-safe per evitare crash di deallocazione al ritorno alla home
-        guard let bitmapContext = CGContext(
-            data: &pixels,
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bytesPerRow: width * 4,
-            space: colorSpace,
-            bitmapInfo: bitmapInfo
-        ) else {
-            return nil
         }
         
         return bitmapContext.makeImage()

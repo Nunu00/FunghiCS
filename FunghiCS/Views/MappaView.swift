@@ -169,7 +169,7 @@ struct MapViewRepresentable: UIViewRepresentable {
         
         if mostraMappaDiCalore {
             let heatmapOverlay = CosenzaHeatmapOverlay()
-            mapView.addOverlay(heatmapOverlay, level: .aboveRoads)
+            mapView.addOverlay(heatmapOverlay, level: .aboveLabels)
         }
         
         // Riconoscitore di tocchi diretti sulla mappa di calore
@@ -181,13 +181,13 @@ struct MapViewRepresentable: UIViewRepresentable {
     }
     
     func updateUIView(_ mapView: MKMapView, context: Context) {
-        if context.coordinator.lastMostraMappa != mostraMappaDiCalore {
+        if context.coordinator.lastMostraMappa != mostraMappaDiCalore || mapView.overlays.isEmpty {
             context.coordinator.lastMostraMappa = mostraMappaDiCalore
             
             mapView.removeOverlays(mapView.overlays)
             if mostraMappaDiCalore {
                 let heatmapOverlay = CosenzaHeatmapOverlay()
-                mapView.addOverlay(heatmapOverlay, level: .aboveRoads)
+                mapView.addOverlay(heatmapOverlay, level: .aboveLabels)
             }
         }
         
