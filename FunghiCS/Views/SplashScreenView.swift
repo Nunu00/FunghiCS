@@ -1,47 +1,45 @@
 import SwiftUI
-import SwiftData
 
 struct SplashScreenView: View {
     @Binding var isAppReady: Bool
     
     @State private var pulseScale: CGFloat = 1.0
-    @State private var messaggioStato = "Caricamento terreno INGV 10m..."
-    @State private var progresso: Double = 0.15
+    @State private var progresso: Double = 0.0
+    @State private var messaggioStato: String = "Caricamento dataset orografico Cosenza..."
     
     var body: some View {
         ZStack {
-            // Fondo Sfumato Foresta
+            // Sfondo Gradiente Scuro Foresta
             LinearGradient(
-                colors: [Color(red: 0.05, green: 0.15, blue: 0.08), Color(red: 0.10, green: 0.25, blue: 0.14)],
+                colors: [Color(red: 0.08, green: 0.18, blue: 0.12), Color(red: 0.02, green: 0.06, blue: 0.04)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
             
-            VStack(spacing: 24) {
+            VStack(spacing: 25) {
                 Spacer()
                 
-                // Emblema Fungo Animato
+                // Icona fungo animata con bagliore
                 ZStack {
                     Circle()
-                        .fill(Color.green.opacity(0.2))
+                        .fill(Color.green.opacity(0.15))
                         .frame(width: 140, height: 140)
                         .scaleEffect(pulseScale)
                     
-                    Image(systemName: "leaf.fill")
-                        .font(.system(size: 60))
-                        .foregroundColor(.green)
-                        .shadow(color: .green.opacity(0.6), radius: 10)
+                    Text("🍄")
+                        .font(.system(size: 80))
+                        .shadow(color: .green.opacity(0.5), radius: 10, x: 0, y: 5)
                 }
                 
                 VStack(spacing: 8) {
                     Text("FunghiCS")
-                        .font(.system(size: 38, weight: .bold, design: .rounded))
+                        .font(.system(size: 36, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                     
-                    Text("Provincia di Cosenza & Basilicata")
+                    Text("Previsione Fruttificazione Provincia Cosenza")
                         .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.8))
+                        .foregroundColor(.green.opacity(0.9))
                 }
                 
                 Spacer()
@@ -76,17 +74,25 @@ struct SplashScreenView: View {
             }
             _ = DEMService.shared
             
-            // Step 2: Download griglia radar/satellite 36 nodi (cattura temporali estivi localizzati)
+            // Step 2: Download griglia radar/satellite 100 nodi montani
             await MainActor.run {
-                messaggioStato = "Download mappe pioggia Radar/Satellite 36 nodi..."
+                messaggioStato = "Download mappe pioggia Radar/Satellite 100 nodi..."
                 progresso = 0.65
             }
             _ = await MeteoService.shared.fetchGrigliaMeteoSpaziale()
             
-            // Step 3: Calcolo mappe di calore e previsioni
+            // Step 3: Pre-generazione asincrona bitmap della mappa di calore in memoria heap
             await MainActor.run {
-                messaggioStato = "Calcolo previsioni e mappa di calore..."
+                messaggioStato = "Generazione grafica mappa di calore..."
+                progresso = 0.90
+            }
+            
+            let heatmapImg = await PrevisioneEngine.generaHeatmapBitmap()
+            await MainActor.run {
+                CosenzaHeatmapOverlayRenderer.sharedCGImage = heatmapImg
+                NotificationCenter.default.post(name: .heatmapDataUpdated, object: nil)
                 progresso = 1.0
+                messaggioStato = "Mappa pronta!"
             }
             
             try? await Task.sleep(nanoseconds: 300_000_000)

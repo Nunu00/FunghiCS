@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 struct PrevisioneEngine {
     
@@ -88,8 +89,6 @@ struct PrevisioneEngine {
         let kVento = (meteo.velocitaVentoMax > 22.0 || meteo.evapotraspirazioneET0 > 4.5) ? 0.70 : 1.00
         
         // 8. Modello ad Incubazione con Curva a Campana di Gauss e Trama del Suolo (SoilGrids)
-        // Sila (sandy_granite): sigma = 1.8 (drenaggio rapido)
-        // Pollino (clay_limestone): sigma = 3.0 (ritenzione prolungata)
         let sigma: Double
         switch soilType {
         case "sandy_granite": sigma = 1.8
@@ -145,6 +144,138 @@ struct PrevisioneEngine {
             messaggioDettagliato: messaggio,
             ritardoGiorniQuota: ritardoGiorniQuota
         )
+    }
+    
+    /// Pre-calcola la bitmap CGImage della mappa di calore in background una sola volta per eliminare ogni loop in draw()
+    static func generaHeatmapBitmap() async -> CGImage? {
+        return await Task.detached(priority: .userInitiated) { () -> CGImage? in
+            let width = 300
+            let height = 300
+            let bytesPerRow = width * 4
+            let colorSpace = CGColorSpaceCreateDeviceRGB()
+            let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
+            
+            guard let bitmapContext = CGContext(
+                data: nil,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: bytesPerRow,
+                space: colorSpace,
+                bitmapInfo: bitmapInfo
+            ) else {
+                return nil
+            }
+            
+            guard let rawPointer = bitmapContext.data else { return nil }
+            let pixels = rawPointer.bindMemory(to: UInt8.self, capacity: width * height * 4)
+            
+            let minLat = CosenzaHeatmapOverlay.minLat
+            let maxLat = CosenzaHeatmapOverlay.maxLat
+            let minLon = CosenzaHeatmapOverlay.minLon
+            let maxLon = CosenzaHeatmapOverlay.maxLon
+            
+            let nodi = MeteoService.nodiGrigliaSpaziale
+            
+            for y in 0..<height {
+                let lat = maxLat - (Double(y) / Double(height)) * (maxLat - minLat)
+                
+                for x in 0..<width {
+                    let lon = minLon + (Double(x) / Double(width)) * (maxLon - minLon)
+                    
+                    let terrain = DEMService.shared.getTerrainData(latitude: lat, longitude: lon)
+                    let quota = terrain.quota
+                    let isIdonea = DEMService.shared.isQuotaIdonea(quota: quota)
+                    let eMare = DEMService.shared.isAreaMareOCosta(lat: lat, lon: lon, quota: quota)
+                    let k_veg = terrain.kVeg
+                    
+                    let idx = (y * width + x) * 4
+                    
+                    if eMare || quota == 0.0 || k_veg <= 0.0 || !isIdonea {
+                        pixels[idx]     = 0
+                        pixels[idx + 1] = 0
+                        pixels[idx + 2] = 0
+                        pixels[idx + 3] = 0
+                    } else {
+                        var pioggiaLocale = 28.0
+                        var tempBase = 16.5
+                        var giorniDaPioggia = 5
+                        
+                        if !nodi.isEmpty {
+                            var pesoTotale = 0.0
+                            var pioggiaPesata = 0.0
+                            var tempPesata = 0.0
+                            
+                            for n in nodi {
+                                let d2 = (n.lat - lat)*(n.lat - lat) + (n.lon - lon)*(n.lon - lon)
+                                let w = 1.0 / max(0.0001, d2)
+                                pesoTotale += w
+                                pioggiaPesata += n.pioggia15gg * w
+                                tempPesata += n.tempMedia * w
+                            }
+                            
+                            if pesoTotale > 0 {
+                                pioggiaLocale = pioggiaPesata / pesoTotale
+                                tempBase = tempPesata / pesoTotale
+                            }
+                        }
+                        
+                        let tempQuota = max(8.0, tempBase - max(0.0, (quota - 800.0) / 160.0))
+                        let meteoLocale = DatiMeteo(
+                            pioggiaCumulata15Giorni: pioggiaLocale,
+                            temperaturaMedia: tempQuota,
+                            umiditaMedia: 65.0,
+                            umiditaSuoloMiceliare: 0.25,
+                            temperaturaSuolo: tempQuota,
+                            deltaTSuolo: 0.0,
+                            velocitaVentoMax: 10.0,
+                            evapotraspirazioneET0: 2.5,
+                            giorniDaUltimaPioggiaSignificativa: giorniDaPioggia
+                        )
+                        
+                        let pTemp = PuntoInteresse(
+                            nome: "Pixel",
+                            latitude: lat,
+                            longitude: lon,
+                            quota: quota,
+                            pendenza: terrain.pendenza,
+                            esposizione: terrain.esposizione
+                        )
+                        let res = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: pTemp, meteo: meteoLocale)
+                        let prob = res.probabilitaPercentuale
+                        
+                        if prob >= 65 {
+                            // Verde Buttata Probabile (>65%)
+                            pixels[idx]     = 34  // R
+                            pixels[idx + 1] = 197 // G
+                            pixels[idx + 2] = 94  // B
+                            pixels[idx + 3] = 200 // Alpha
+                        } else if prob >= 48 {
+                            // Arancione In Preparazione (48-64%)
+                            pixels[idx]     = 249 // R
+                            pixels[idx + 1] = 115 // G
+                            pixels[idx + 2] = 22  // B
+                            pixels[idx + 3] = 200 // Alpha
+                        } else if prob >= 30 {
+                            // Giallo In Esaurimento (30-47%)
+                            pixels[idx]     = 234 // R
+                            pixels[idx + 1] = 179 // G
+                            pixels[idx + 2] = 8   // B
+                            pixels[idx + 3] = 190 // Alpha
+                        } else {
+                            // Grigio Non Favorevole (<30%)
+                            pixels[idx]     = 156 // R
+                            pixels[idx + 1] = 163 // G
+                            pixels[idx + 2] = 175 // B
+                            pixels[idx + 3] = 140 // Alpha
+                        }
+                    }
+                }
+            }
+            
+            print("✅ [DEBUG] Heatmap CGImage pre-calcolata con successo in memoria heap!")
+            return bitmapContext.makeImage()
+        }.value
     }
     
     /// Calibra il moltiplicatore di soglia del punto in base alle osservazioni storiche dell'utente
