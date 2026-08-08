@@ -2,7 +2,8 @@ import Foundation
 
 struct PrevisioneEngine {
     
-    /// Calcola la probabilità di fruttificazione fungina combinando dati meteo e altimetrici/morfologici del punto
+    /// Calcola la probabilità di fruttificazione fungina combinando dati meteo, altimetrici/morfologici del punto
+    /// ed applicando il Modello ad Incubazione Miceliare con Curva a Campana di Gauss (Gaussian Incubation Model)
     static func calcolaProbabilitaFruttificazione(punto: PuntoInteresse, meteo: DatiMeteo) -> RisultatoPrevisione {
         let sogliaBase: Double = 60.0 // 60 mm di pioggia base nei 15 giorni
         var fattoreCorrezione: Double = 1.0
@@ -47,35 +48,52 @@ struct PrevisioneEngine {
         let tempCentigradi = meteo.temperaturaMedia
         let tempFavorevole = (tempCentigradi >= 6.0 && tempCentigradi <= 26.0)
         
-        // Calcolo della percentuale base di probabilità (0 - 100%)
+        // Calcolo dell'Ampiezza Potenziale Massima (P_max) basata sul volume d'acqua
         let rapportoPioggia = pioggia / max(1.0, sogliaFinaleCalcolata)
-        var probBase = min(100.0, rapportoPioggia * 80.0)
+        var pMax = min(100.0, rapportoPioggia * 85.0)
         
         if !tempFavorevole {
-            probBase *= 0.4 // penalizzazione se temperatura estrema
+            pMax *= 0.4 // Penalizzazione se temperatura fuori dal range miceliare
         }
         
-        let probFinale = Int(max(0.0, min(100.0, probBase)))
+        // 6. Modello ad Incubazione con Curva a Campana di Gauss
+        // t = giorni trascorsi dall'evento piovoso significativo (>5mm)
+        // mu = 6.5 giorni (picco di fruttificazione del carpoforo)
+        // sigma = 2.5 giorni (ampiezza temporale della buttata)
+        let t = Double(meteo.giorniDaUltimaPioggiaSignificativa)
+        let mu: Double = 6.5
+        let sigma: Double = 2.5
         
-        // 6. Determinazione dello Stato Temporale
+        let fattoreCampanaGauss = exp(-pow(t - mu, 2) / (2.0 * pow(sigma, 2)))
+        var probCalc = pMax * fattoreCampanaGauss
+        
+        // Se la pioggia è abbondantissima (>soglia) ed il temporale è recentissimo (0-3 gg),
+        // manteniamo una probabilità minima di innesco in preparazione (45-55%)
+        if rapportoPioggia >= 1.0 && t <= 3 {
+            probCalc = max(45.0, probCalc)
+        }
+        
+        let probFinale = Int(max(0.0, min(100.0, probCalc)))
+        
+        // 7. Determinazione dello Stato Temporale
         let giorniDaPioggia = meteo.giorniDaUltimaPioggiaSignificativa
         let stato: StatoFruttificazione
         let messaggio: String
         
-        if probFinale < 40 {
+        if probFinale < 30 {
             stato = .nonFavorevole
-            messaggio = "Precipitazioni insufficienti (\(String(format: "%.1f", pioggia))mm / \(String(format: "%.1f", sogliaFinaleCalcolata))mm richiesti)."
+            messaggio = "Condizioni non favorevoli (\(String(format: "%.1f", pioggia))mm / \(String(format: "%.1f", sogliaFinaleCalcolata))mm). Terreno troppo secco o tempo di incubazione scaduto."
         } else {
             switch giorniDaPioggia {
             case 0...3:
                 stato = .inPreparazione
-                messaggio = "Terreno in fase di innesco miceliare. Inizio buttata previsto nei prossimi giorni."
-            case 4...10:
+                messaggio = "Fase di Incubazione (Innesco Primordi). La pioggia ha bagnato il terreno, picco della buttata previsto tra 3-5 giorni."
+            case 4...9:
                 stato = .buttataProbabile
-                messaggio = "Condizioni ottimali! Probabile presenza di fruttificazione sul campo."
-            case 11...15:
+                messaggio = "Picco della Campana di Gauss! Condizioni ottimali sul campo, probabile fruttificazione in corso."
+            case 10...14:
                 stato = .inEsaurimento
-                messaggio = "Umidità in calo. La buttata sta giungendo a termine."
+                messaggio = "Fase Calante della Campana. Umidità del suolo in esaurimento, buttata in fase di termine."
             default:
                 stato = .nonFavorevole
                 messaggio = "Troppi giorni trascorsi dall'ultimo evento piovoso significativo."
@@ -105,8 +123,7 @@ struct PrevisioneEngine {
                 adeguamento += 0.05
             }
         }
-        
-        let nuovoMoltiplicatore = punto.moltiplicatoreSoglia + adeguamento
-        punto.moltiplicatoreSoglia = max(0.6, min(1.5, nuovoMoltiplicatore))
+        let nuovoMoltiplicatore = max(0.5, min(2.0, punto.moltiplicatoreSoglia + adeguamento))
+        punto.moltiplicatoreSoglia = nuovoMoltiplicatore
     }
 }
