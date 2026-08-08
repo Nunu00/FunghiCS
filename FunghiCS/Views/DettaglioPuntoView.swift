@@ -10,6 +10,18 @@ struct DettaglioPuntoView: View {
     @State private var previsione: RisultatoPrevisione? = nil
     @State private var mostrandoAggiungiObs = false
     
+    private func testoShockTermico(_ deltaT: Double) -> String {
+        if deltaT >= 3.5 {
+            return "+\(String(format: "%.1f", deltaT))°C (Bonus +20%)"
+        } else {
+            return "Assente"
+        }
+    }
+    
+    private func coloreShockTermico(_ deltaT: Double) -> Color {
+        return deltaT >= 3.5 ? .blue : .secondary
+    }
+    
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -88,7 +100,7 @@ struct DettaglioPuntoView: View {
                     .background(Color(.secondarySystemBackground))
                     .cornerRadius(12)
                     
-                    // Card 3: Analisi Meteo, Idratazione Micelio & Shock Termico
+                    // Card 3: Analisi Meteo, Idratazione Suolo & Shock Termico
                     if let m = meteo, let prev = previsione {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Dati Meteo & Idratazione Suolo (Open-Meteo)")
@@ -109,9 +121,9 @@ struct DettaglioPuntoView: View {
                                 }
                                 GridRow {
                                     Text("Shock Termico DeltaT:").bold()
-                                    Text(m.deltaTSuolo >= 3.5 ? "+\(String(format: "%.1f", m.deltaTSuolo))°C (Bonus +20%)" : "Assente")
+                                    Text(testoShockTermico(m.deltaTSuolo))
                                         .font(.caption).bold()
-                                        .foregroundColor(m.deltaTSuolo >= 3.5 ? .blue : .secondary)
+                                        .foregroundColor(coloreShockTermico(m.deltaTSuolo))
                                     Text("Vento Max:").bold()
                                     Text("\(String(format: "%.1f", m.velocitaVentoMax)) km/h")
                                 }
