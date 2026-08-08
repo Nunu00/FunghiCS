@@ -75,7 +75,7 @@ struct DatiMeteo {
                 pioggiaTotale = validPrecip.reduce(0, +)
                 
                 for p in validPrecip.reversed() {
-                    if p >= 5.0 { break }
+                    if p >= 1.5 { break }
                     ultimiGiorniSenzaPioggia += 1
                 }
             }
