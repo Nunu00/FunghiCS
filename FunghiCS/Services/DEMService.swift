@@ -79,4 +79,10 @@ final class DEMService {
             return (quota: 0.0, pendenza: 0.0, esposizione: "N")
         }
     }
+    
+    /// Restituisce tutti i punti altimetrici INGV 10m presenti nelle zone montane >=800m s.l.m.
+    func getPuntiMontaniIdonei() -> [DEMGridPoint] {
+        guard let data = demData else { return [] }
+        return data.points.filter { $0.elevation >= 800.0 }
+    }
 }

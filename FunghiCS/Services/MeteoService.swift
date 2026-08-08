@@ -35,17 +35,20 @@ actor MeteoService {
         }
     }
     
-    /// Scarica in UN'UNICA CHIAMATA HTTP la griglia meteo ad alta risoluzione (36 nodi spaziali)
-    /// basata sui dati Radar/Satellite ICON-D2 per catturare i temporali estivi localizzati!
+    /// Scarica in UN'UNICA CHIAMATA HTTP la griglia meteo a 64 nodi CONCENTRATI ESCLUSIVAMENTE SULLE ZONE MONTANE >=800m s.l.m.
+    /// per risolvere con precisione chirurgica i temporali estivi nei boschi!
     func fetchGrigliaMeteoSpaziale() async -> [NodoMeteoSpaziale] {
-        let lats: [Double] = [38.85, 39.15, 39.45, 39.75, 40.05, 40.30]
-        let lons: [Double] = [15.85, 16.12, 16.35, 16.58, 16.85, 17.15]
+        let puntiMontani = DEMService.shared.getPuntiMontaniIdonei()
+        guard !puntiMontani.isEmpty else { return [] }
+        
+        let targetCount = 64
+        let step = max(1, puntiMontani.count / targetCount)
         
         var coords: [(lat: Double, lon: Double)] = []
-        for lat in lats {
-            for lon in lons {
-                coords.append((lat, lon))
-            }
+        for i in stride(from: 0, to: puntiMontani.count, by: step) {
+            if coords.count >= targetCount { break }
+            let p = puntiMontani[i]
+            coords.append((p.lat, p.lon))
         }
         
         let latStr = coords.map { String(format: "%.4f", $0.lat) }.joined(separator: ",")
@@ -75,11 +78,11 @@ actor MeteoService {
             }
             
             self.nodiGrigliaSpaziale = nodi
-            print("✅ Scaricati con successo \(nodi.count) nodi Radar/Satellite per temporali estivi localizzati!")
+            print("✅ Scaricati con successo \(nodi.count) nodi Radar/Satellite CONCENTRATI IN MONTAGNA (>=800m)!")
             return nodi
             
         } catch {
-            print("❌ Errore scaricamento griglia spaziale: \(error)")
+            print("❌ Errore scaricamento griglia spaziale montana: \(error)")
             return []
         }
     }
