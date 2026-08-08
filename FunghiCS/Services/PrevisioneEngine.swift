@@ -2,16 +2,32 @@ import Foundation
 
 struct PrevisioneEngine {
     
-    /// Calcola la probabilità di fruttificazione fungina combinando dati meteo, altimetrici/morfologici del punto
-    /// ed applicando il Modello ad Incubazione Miceliare con Curva a Campana di Gauss (Gaussian Incubation Model)
+    /// Calcola la probabilità di fruttificazione fungina combinando dati meteo avanzati, altimetrici,
+    /// copertura forestale Copernicus (K_veg), trama del suolo SoilGrids, shock termico e penalizzazione vento secco.
     static func calcolaProbabilitaFruttificazione(punto: PuntoInteresse, meteo: DatiMeteo) -> RisultatoPrevisione {
-        let sogliaBase: Double = 60.0 // 60 mm di pioggia base nei 15 giorni
+        let terrainInfo = DEMService.shared.getTerrainData(latitude: punto.latitude, longitude: punto.longitude)
+        
+        let kVeg = terrainInfo.kVeg
+        let soilType = terrainInfo.soilType
+        
+        // Se K_veg è 0.0 (roccia nuda, acqua o urbano), la probabilità è 0% (nessuna fruttificazione simbiotica possibile)
+        if kVeg <= 0.0 {
+            return RisultatoPrevisione(
+                stato: .nonFavorevole,
+                probabilitaPercentuale: 0,
+                pioggiaCumulata15gg: meteo.pioggiaCumulata15Giorni,
+                sogliaRichiesta: 60.0,
+                messaggioDettagliato: "Superficie non boschiva (\(terrainInfo.nomeVegetazione)). I funghi micorrizici nascono solo in simbiosi con gli alberi.",
+                ritardoGiorniQuota: 0
+            )
+        }
+        
+        let sogliaBase: Double = 60.0
         var fattoreCorrezione: Double = 1.0
         var ritardoGiorniQuota: Int = 0
         
         // 1. Correzione Quota (>1000m)
         if punto.quota > 1000.0 {
-            // Sopra i 1000m: ritardo stagionale di innesco (14 giorni) e soglia pioggia -10%
             fattoreCorrezione *= 0.90
             ritardoGiorniQuota = 14
         }
@@ -19,22 +35,15 @@ struct PrevisioneEngine {
         // 2. Correzione Esposizione
         let espUpper = punto.esposizione.uppercased()
         if espUpper.contains("S") {
-            // Versanti Sud: +15% pioggia necessaria per maggiore evaporazione
             fattoreCorrezione *= 1.15
         } else if espUpper.contains("N") {
-            // Versanti Nord: conserva umidità, fattore base
-            fattoreCorrezione *= 1.0
-        } else {
-            // Est / Ovest: neutro
             fattoreCorrezione *= 1.0
         }
         
         // 3. Correzione Pendenza
         if punto.pendenza > 20.0 {
-            // Pendenza ripida (>20°): +15% soglia per via del dilavamento/scorrimento acqua
             fattoreCorrezione *= 1.15
         } else if punto.pendenza < 5.0 {
-            // Pianeggiante (<5°): -5% soglia per accumulo/ristagno umidità
             fattoreCorrezione *= 0.95
         }
         
@@ -44,53 +53,67 @@ struct PrevisioneEngine {
         let sogliaFinaleCalcolata = sogliaBase * fattoreCorrezione
         let pioggia = meteo.pioggiaCumulata15Giorni
         
-        // 5. Temperatura Check (Range ideale boschi e pinete montane: 6.0°C - 26.0°C)
-        let tempCentigradi = meteo.temperaturaMedia
-        let tempFavorevole = (tempCentigradi >= 6.0 && tempCentigradi <= 26.0)
+        // 5. Temperatura Suolo (Range ideale miceliare: 10.0°C - 22.0°C)
+        let tempSuolo = meteo.temperaturaSuolo
+        let tempFavorevole = (tempSuolo >= 8.0 && tempSuolo <= 26.0)
         
-        // Calcolo dell'Ampiezza Potenziale Massima (P_max) basata sul volume d'acqua
+        // Ampiezza Potenziale Massima (P_max)
         let rapportoPioggia = pioggia / max(1.0, sogliaFinaleCalcolata)
         var pMax = min(100.0, rapportoPioggia * 85.0)
         
         if !tempFavorevole {
-            pMax *= 0.4 // Penalizzazione se temperatura fuori dal range miceliare
+            pMax *= 0.4 // Penalizzazione se terreno troppo freddo o troppo caldo
         }
         
-        // 6. Modello ad Incubazione con Curva a Campana di Gauss
-        // t = giorni trascorsi dall'evento piovoso significativo (>5mm)
-        // mu = 6.5 giorni (picco di fruttificazione del carpoforo)
-        // sigma = 2.5 giorni (ampiezza temporale della buttata)
+        // 6. Bonus Shock Termico del Terreno (Delta T >= 3.5°C)
+        if meteo.deltaTSuolo >= 3.5 && pioggia >= 20.0 {
+            pMax *= 1.20 // +20% bonus innesco da shock termico
+        }
+        
+        // 7. Penalizzazione Vento Secco (Vento > 22 km/h o alta evapotraspirazione)
+        let kVento = (meteo.velocitaVentoMax > 22.0 || meteo.evapotraspirazioneET0 > 4.5) ? 0.70 : 1.00
+        
+        // 8. Modello ad Incubazione con Curva a Campana di Gauss e Trama del Suolo (SoilGrids)
+        // Sila (sandy_granite): sigma = 1.8 (drenaggio rapido)
+        // Pollino (clay_limestone): sigma = 3.0 (ritenzione prolungata)
+        let sigma: Double
+        switch soilType {
+        case "sandy_granite": sigma = 1.8
+        case "clay_limestone": sigma = 3.0
+        default: sigma = 2.4
+        }
+        
         let t = Double(meteo.giorniDaUltimaPioggiaSignificativa)
         let mu: Double = 6.5
-        let sigma: Double = 2.5
-        
         let fattoreCampanaGauss = exp(-pow(t - mu, 2) / (2.0 * pow(sigma, 2)))
-        var probCalc = pMax * fattoreCampanaGauss
         
-        // Se la pioggia è abbondantissima (>soglia) ed il temporale è recentissimo (0-3 gg),
-        // manteniamo una probabilità minima di innesco in preparazione (45-55%)
+        // 9. Check Umidità dello Strato Miceliare a 3-9 cm
+        let kUmiditaSuolo = meteo.umiditaSuoloMiceliare < 0.18 ? max(0.2, meteo.umiditaSuoloMiceliare / 0.18) : 1.0
+        
+        var probCalc = pMax * fattoreCampanaGauss * kVeg * kVento * kUmiditaSuolo
+        
         if rapportoPioggia >= 1.0 && t <= 3 {
             probCalc = max(45.0, probCalc)
         }
         
         let probFinale = Int(max(0.0, min(100.0, probCalc)))
         
-        // 7. Determinazione dello Stato Temporale
+        // 10. Determinazione dello Stato Temporale
         let giorniDaPioggia = meteo.giorniDaUltimaPioggiaSignificativa
         let stato: StatoFruttificazione
         let messaggio: String
         
         if probFinale < 30 {
             stato = .nonFavorevole
-            messaggio = "Condizioni non favorevoli (\(String(format: "%.1f", pioggia))mm / \(String(format: "%.1f", sogliaFinaleCalcolata))mm). Terreno troppo secco o tempo di incubazione scaduto."
+            messaggio = "Condizioni non favorevoli (\(String(format: "%.1f", pioggia))mm / \(String(format: "%.1f", sogliaFinaleCalcolata))mm). Suolo secco (\(String(format: "%.2f", meteo.umiditaSuoloMiceliare))m³/m³) o tempo incubazione scaduto."
         } else {
             switch giorniDaPioggia {
             case 0...3:
                 stato = .inPreparazione
-                messaggio = "Fase di Incubazione (Innesco Primordi). La pioggia ha bagnato il terreno, picco della buttata previsto tra 3-5 giorni."
+                messaggio = "Fase di Incubazione (Innesco Primordi). Pioggia penetrata nel suolo, picco della buttata previsto tra 3-5 giorni."
             case 4...9:
                 stato = .buttataProbabile
-                messaggio = "Picco della Campana di Gauss! Condizioni ottimali sul campo, probabile fruttificazione in corso."
+                messaggio = "Picco della Campana di Gauss! Suolo idratato (\(terrainInfo.nomeSuolo)), probabile fruttificazione in corso."
             case 10...14:
                 stato = .inEsaurimento
                 messaggio = "Fase Calante della Campana. Umidità del suolo in esaurimento, buttata in fase di termine."

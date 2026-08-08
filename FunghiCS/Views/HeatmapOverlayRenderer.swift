@@ -128,10 +128,13 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
                     var giorniDaPioggia = 5
                     
                     if !nodi.isEmpty {
-                        // Trova la media pesata dei nodi radar/satellite più vicini per risolvere i temporali estivi localizzati
                         var pesoTotale = 0.0
                         var pioggiaPesata = 0.0
                         var tempPesata = 0.0
+                        var smPesata = 0.0
+                        var stPesata = 0.0
+                        var windPesata = 0.0
+                        var deltaTPesata = 0.0
                         
                         for n in nodi {
                             let d2 = (n.lat - lat)*(n.lat - lat) + (n.lon - lon)*(n.lon - lon)
@@ -151,6 +154,12 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
                     let meteoLocale = DatiMeteo(
                         pioggiaCumulata15Giorni: pioggiaLocale,
                         temperaturaMedia: tempQuota,
+                        umiditaMedia: 65.0,
+                        umiditaSuoloMiceliare: 0.25,
+                        temperaturaSuolo: tempQuota,
+                        deltaTSuolo: 0.0,
+                        velocitaVentoMax: 10.0,
+                        evapotraspirazioneET0: 2.5,
                         giorniDaUltimaPioggiaSignificativa: giorniDaPioggia
                     )
                     
