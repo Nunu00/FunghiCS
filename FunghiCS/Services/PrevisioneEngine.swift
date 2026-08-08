@@ -7,7 +7,21 @@ struct PrevisioneEngine {
     static func calcolaProbabilitaFruttificazione(punto: PuntoInteresse, meteo: DatiMeteo) -> RisultatoPrevisione {
         let terrainInfo = DEMService.shared.getTerrainData(latitude: punto.latitude, longitude: punto.longitude)
         
-        let kVeg = terrainInfo.kVeg
+        // Utilizza le proprietà esplicite del punto o ripiega sui dati altimetrici del DEM
+        let quotaPunto = punto.quota > 0 ? punto.quota : terrainInfo.quota
+        let pendenzaPunto = punto.pendenza > 0 ? punto.pendenza : terrainInfo.pendenza
+        let esposizionePunto = !punto.esposizione.isEmpty ? punto.esposizione : terrainInfo.esposizione
+        
+        // Determina K_veg: per i punti montani (>=800m s.l.m.), K_veg è 1.0 a meno che non sia uno specchio d'acqua o roccia
+        let kVeg: Double
+        if terrainInfo.kVeg > 0.0 {
+            kVeg = terrainInfo.kVeg
+        } else if quotaPunto >= 800.0 {
+            kVeg = 1.00
+        } else {
+            kVeg = 0.00
+        }
+        
         let soilType = terrainInfo.soilType
         
         // Se K_veg è 0.0 (roccia nuda, acqua o urbano), la probabilità è 0% (nessuna fruttificazione simbiotica possibile)
@@ -27,13 +41,13 @@ struct PrevisioneEngine {
         var ritardoGiorniQuota: Int = 0
         
         // 1. Correzione Quota (>1000m)
-        if punto.quota > 1000.0 {
+        if quotaPunto > 1000.0 {
             fattoreCorrezione *= 0.90
             ritardoGiorniQuota = 14
         }
         
         // 2. Correzione Esposizione
-        let espUpper = punto.esposizione.uppercased()
+        let espUpper = esposizionePunto.uppercased()
         if espUpper.contains("S") {
             fattoreCorrezione *= 1.15
         } else if espUpper.contains("N") {
@@ -41,9 +55,9 @@ struct PrevisioneEngine {
         }
         
         // 3. Correzione Pendenza
-        if punto.pendenza > 20.0 {
+        if pendenzaPunto > 20.0 {
             fattoreCorrezione *= 1.15
-        } else if punto.pendenza < 5.0 {
+        } else if pendenzaPunto < 5.0 {
             fattoreCorrezione *= 0.95
         }
         
