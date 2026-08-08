@@ -1,0 +1,9 @@
+.DS_Store
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+.build/
+*.ipa
+ingv_tiles/
+temp_ingv/
+*.zip

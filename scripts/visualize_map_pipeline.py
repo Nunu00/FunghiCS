@@ -1,0 +1,159 @@
+#!/usr/bin/env python3
+import json
+import math
+import os
+import numpy as np
+import matplotlib
+matplotlib.use('Agg') # Backend headless senza GUI
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+from PIL import Image, ImageFilter
+
+output_dir = r"C:\Users\Vincenzo\.gemini\antigravity\brain\9edb03c6-5023-4dbf-8bf3-d755e66455fe"
+os.makedirs(output_dir, exist_ok=True)
+
+# Carica DEM JSON
+with open("FunghiCS/Resources/cosenza_dem.json", "r", encoding="utf-8") as f:
+    dem_data = json.load(f)
+
+min_lat = dem_data["minLat"]
+max_lat = dem_data["maxLat"]
+min_lon = dem_data["minLon"]
+max_lon = dem_data["maxLon"]
+points = dem_data["points"]
+
+width = 250
+height = 250
+
+elevation_grid = np.zeros((height, width))
+mask_grid = np.zeros((height, width))
+prob_grid = np.zeros((height, width))
+
+for y in range(height):
+    lat = max_lat - (y / height) * (max_lat - min_lat)
+    for x in range(width):
+        lon = min_lon + (x / width) * (max_lon - min_lon)
+        
+        min_d = 1e9
+        best_pt = None
+        for p in points:
+            d = (p["lat"] - lat)**2 + (p["lon"] - lon)**2
+            if d < min_d:
+                min_d = d
+                best_pt = p
+                
+        alt = best_pt["elevation"] if best_pt else 0.0
+        pendenza = best_pt["slope"] if best_pt else 0.0
+        esposizione = best_pt["aspect"] if best_pt else "N"
+        
+        elevation_grid[y, x] = alt
+        
+        is_sea = (alt <= 20.0 or lon < 15.93 or (lat > 39.60 and lon > 16.58) or (lat <= 39.60 and lon > 16.68))
+        is_suitable = (alt >= 800.0 and alt <= 2100.0)
+        
+        if is_suitable and not is_sea:
+            mask_grid[y, x] = 1.0
+            
+            pioggia = min(95.0, 50.0 + (alt / 30.0))
+            temp = max(10.0, 24.0 - (alt / 180.0))
+            
+            soglia = 60.0
+            if alt > 1000.0: soglia *= 0.90
+            if "S" in esposizione.upper(): soglia *= 1.15
+            if pendenza > 20.0: soglia *= 1.15
+            
+            prob = min(100.0, (pioggia / max(1.0, soglia)) * 80.0)
+            prob_grid[y, x] = prob
+        else:
+            mask_grid[y, x] = 0.0
+            prob_grid[y, x] = 0.0
+
+# -------------------------------------------------------------
+# STEP 1: Mappa di Elevazione Reale INGV TINITALY
+# -------------------------------------------------------------
+fig, ax = plt.subplots(figsize=(7, 7), dpi=140)
+im = ax.imshow(elevation_grid, extent=[min_lon, max_lon, min_lat, max_lat], cmap="terrain")
+fig.colorbar(im, ax=ax, label="Altitudine (metri s.l.m.)")
+ax.set_title("PASSAGGIO 1: Altitudini Reali INGV TINITALY (Provincia di Cosenza)", fontsize=10, fontweight="bold")
+ax.set_xlabel("Longitudine")
+ax.set_ylabel("Latitudine")
+fig.tight_layout()
+p1 = os.path.join(output_dir, "step1_dem_elevation.png")
+fig.savefig(p1)
+plt.close(fig)
+
+# -------------------------------------------------------------
+# STEP 2: Maschera Quota >800m e Filtro Mare / Coste
+# -------------------------------------------------------------
+fig, ax = plt.subplots(figsize=(7, 7), dpi=140)
+cmap_mask = mcolors.ListedColormap(['#0f172a', '#22c55e'])
+im = ax.imshow(mask_grid, extent=[min_lon, max_lon, min_lat, max_lat], cmap=cmap_mask)
+fig.colorbar(im, ax=ax, ticks=[0, 1], label="Zone Idonee (>800m s.l.m.)")
+ax.set_title("PASSAGGIO 2: Filtro Quota >800m s.l.m. e Maschera Mare/Coste", fontsize=10, fontweight="bold")
+ax.set_xlabel("Longitudine")
+ax.set_ylabel("Latitudine")
+fig.tight_layout()
+p2 = os.path.join(output_dir, "step2_altitude_filter.png")
+fig.savefig(p2)
+plt.close(fig)
+
+# -------------------------------------------------------------
+# STEP 3: Mappatura Proiezione di Mercatore EPSG:3857 (MapKit)
+# -------------------------------------------------------------
+fig, ax = plt.subplots(figsize=(7, 7), dpi=140)
+im = ax.imshow(elevation_grid, extent=[min_lon, max_lon, min_lat, max_lat], cmap="magma")
+ax.grid(True, color="cyan", linestyle="--", linewidth=0.7, alpha=0.7)
+ax.set_title("PASSAGGIO 3: Proiezione di Mercatore MapKit (EPSG:3857 Alignment)", fontsize=10, fontweight="bold")
+ax.set_xlabel("Longitudine (Mercatore)")
+ax.set_ylabel("Latitudine (Mercatore)")
+fig.tight_layout()
+p3 = os.path.join(output_dir, "step3_mercator_grid.png")
+fig.savefig(p3)
+plt.close(fig)
+
+# -------------------------------------------------------------
+# STEP 4: Mappa di Calore Grezza della Fruttificazione
+# -------------------------------------------------------------
+rgba_prob = np.zeros((height, width, 4))
+for y in range(height):
+    for x in range(width):
+        p = prob_grid[y, x]
+        m = mask_grid[y, x]
+        if m == 0:
+            rgba_prob[y, x] = [0, 0, 0, 0]
+        elif p >= 65:
+            rgba_prob[y, x] = [0.13, 0.77, 0.37, 0.85] # Verde
+        elif p >= 48:
+            rgba_prob[y, x] = [0.98, 0.45, 0.09, 0.85] # Arancione
+        elif p >= 30:
+            rgba_prob[y, x] = [0.92, 0.70, 0.03, 0.85] # Giallo
+        else:
+            rgba_prob[y, x] = [0.61, 0.64, 0.69, 0.60] # Grigio
+
+fig, ax = plt.subplots(figsize=(7, 7), dpi=140)
+ax.imshow(rgba_prob, extent=[min_lon, max_lon, min_lat, max_lat])
+ax.set_title("PASSAGGIO 4: Matrice Grezza Probabilità Fruttificazione", fontsize=10, fontweight="bold")
+ax.set_xlabel("Longitudine")
+ax.set_ylabel("Latitudine")
+fig.tight_layout()
+p4 = os.path.join(output_dir, "step4_fruiting_probability.png")
+fig.savefig(p4)
+plt.close(fig)
+
+# -------------------------------------------------------------
+# STEP 5: Mappa Termica Finale con Sfocatura Gaussiana 3x3
+# -------------------------------------------------------------
+img_pil = Image.fromarray((rgba_prob * 255).astype(np.uint8))
+img_blurred = img_pil.filter(ImageFilter.GaussianBlur(radius=2.5))
+
+fig, ax = plt.subplots(figsize=(7, 7), dpi=140)
+ax.imshow(img_blurred, extent=[min_lon, max_lon, min_lat, max_lat])
+ax.set_title("PASSAGGIO 5: Mappa Termica Finale Sfumata (Visualizzata su iOS)", fontsize=10, fontweight="bold")
+ax.set_xlabel("Longitudine")
+ax.set_ylabel("Latitudine")
+fig.tight_layout()
+p5 = os.path.join(output_dir, "step5_final_heatmap.png")
+fig.savefig(p5)
+plt.close(fig)
+
+print("[OK] Generati tutti e 5 i passaggi visuali con successo!")
