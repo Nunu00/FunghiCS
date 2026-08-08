@@ -129,44 +129,29 @@ final class DEMService {
             }
         }
         
-        // Controllo geografico stretto per i 4 Laghi della Sila (Lago Arvo, Ampollino, Cecita, Ariamacina)
-        let isSilaLakeGeo = (39.220 <= latitude && latitude <= 39.275 && 16.460 <= longitude && longitude <= 16.560) ||
-                            (39.115 <= latitude && latitude <= 39.170 && 16.550 <= longitude && longitude <= 16.650) ||
-                            (39.365 <= latitude && latitude <= 39.430 && 16.495 <= longitude && longitude <= 16.610) ||
-                            (39.310 <= latitude && latitude <= 39.355 && 16.520 <= longitude && longitude <= 16.575)
-        
         if let punto = migliorPunto {
-            let clc = isSilaLakeGeo ? "CLC_512_Water_Bodies" : (punto.clcClass ?? "CLC_311")
-            
-            // Se è un lago o roccia nuda o K_veg = 0.0, K_veg è RIGOROSAMENTE 0.00
-            let kv: Double
-            if clc == "CLC_512_Water_Bodies" || clc == "CLC_332_Bare_Rock_Screes" || (punto.kVeg ?? 1.0) == 0.0 {
-                kv = 0.00
-            } else {
-                kv = punto.kVeg ?? (punto.elevation >= 800.0 ? 1.0 : 0.0)
-            }
-            
+            let clc = punto.clcClass ?? "CLC_311"
+            let kv = punto.elevation >= 800.0 ? 1.0 : (punto.kVeg ?? 0.0)
             let soil = punto.soilType ?? "sandy_granite"
             
             let nomeVeg: String
             switch clc {
-            case "CLC_512_Water_Bodies": nomeVeg = "Superficie Lacustre / Lago"
             case "CLC_312_Coniferous_Pine_Forest": nomeVeg = "Pineta di Pino Laricio (Sila)"
             case "CLC_311_Broadleaved_Forest": nomeVeg = "Bosco di Latifoglie (Castagno/Quercia)"
             case "CLC_311_Broadleaved_Beech_Forest": nomeVeg = "Fagjeta Alta Quota"
             case "CLC_313_Mixed_Forest": nomeVeg = "Bosco Misto (Faggio/Abete/Pino)"
             case "CLC_324_Transitional_Woodland": nomeVeg = "Macchia Pedemontana / Arbusteto"
-            case "CLC_332_Bare_Rock_Screes": nomeVeg = "Roccia Nuda / Ghiaione Sommitale"
+            case "CLC_512_Water_Bodies": nomeVeg = "Area Silana / Bacino Lacustre"
+            case "CLC_332_Bare_Rock_Screes": nomeVeg = "Area Sommitale Pollino"
             default: nomeVeg = kv > 0 ? "Bosco Montano Naturale" : "Zona Non Boschiva"
             }
             
             let nomeSuolo: String
             switch soil {
-            case "water": nomeSuolo = "Bacino Idrico / Acqua"
             case "sandy_granite": nomeSuolo = "Granitico-Sabbioso (Drenaggio Rapido)"
             case "clay_limestone": nomeSuolo = "Calcareo-Argilloso (Ritenzione Prolungata)"
             case "loam_metamorphic": nomeSuolo = "Limoso-Metamorfico (Drenaggio Bilanciato)"
-            default: nomeSuolo = "Terreno Standard"
+            default: nomeSuolo = "Terreno Montano"
             }
             
             return (
@@ -180,9 +165,6 @@ final class DEMService {
                 nomeSuolo: nomeSuolo
             )
         } else {
-            if isSilaLakeGeo {
-                return (1280.0, 0.0, "N", 0.00, "water", "CLC_512_Water_Bodies", "Superficie Lacustre / Lago", "Bacino Idrico / Acqua")
-            }
             return (0.0, 0.0, "N", 0.0, "farmland_urban", "CLC_211", "Zona non boschiva", "Terreno Agricolo/Urbano")
         }
     }

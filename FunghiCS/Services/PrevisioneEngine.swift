@@ -12,26 +12,16 @@ struct PrevisioneEngine {
         let pendenzaPunto = punto.pendenza > 0 ? punto.pendenza : terrainInfo.pendenza
         let esposizionePunto = !punto.esposizione.isEmpty ? punto.esposizione : terrainInfo.esposizione
         
-        // Determina K_veg: per i punti montani (>=800m s.l.m.), K_veg è 1.0 a meno che non sia uno specchio d'acqua o roccia
-        let kVeg: Double
-        if terrainInfo.clcClass == "CLC_512_Water_Bodies" || terrainInfo.clcClass == "CLC_332_Bare_Rock_Screes" {
-            kVeg = 0.00
-        } else if quotaPunto >= 800.0 {
-            kVeg = 1.00
-        } else {
-            kVeg = terrainInfo.kVeg
-        }
-        
+        let kVeg = quotaPunto >= 800.0 ? 1.00 : terrainInfo.kVeg
         let soilType = terrainInfo.soilType
         
-        // Se K_veg è 0.0 (roccia nuda, acqua o urbano), la probabilità è 0% (nessuna fruttificazione simbiotica possibile)
         if kVeg <= 0.0 {
             return RisultatoPrevisione(
                 stato: .nonFavorevole,
                 probabilitaPercentuale: 0,
                 pioggiaCumulata15gg: meteo.pioggiaCumulata15Giorni,
                 sogliaRichiesta: 60.0,
-                messaggioDettagliato: "Superficie non boschiva (\(terrainInfo.nomeVegetazione)). Condizioni non idonee.",
+                messaggioDettagliato: "Quota o superficie non idonea alla fruttificazione.",
                 ritardoGiorniQuota: 0
             )
         }
@@ -105,27 +95,31 @@ struct PrevisioneEngine {
         var probCalc = pMax * fattoreCampanaGauss * kVeg * kVento * kUmiditaSuolo
         
         if rapportoPioggia >= 1.0 && t <= 3 {
-            probCalc = max(45.0, probCalc)
+            probCalc = max(48.0, probCalc)
         }
         
         let probFinale = Int(max(0.0, min(100.0, probCalc)))
         
-        // 10. Determinazione dello Stato e del Messaggio di Sintesi Semplificato
+        // 10. Determinazione dello Stato e del Messaggio di Sintesi ALLINEATO 100% ALLA LEGENDA COLORE
         let stato: StatoFruttificazione
         let messaggio: String
         
-        if probFinale < 30 {
-            stato = .nonFavorevole
-            messaggio = "Suolo non idratato. Condizioni non favorevoli alla fruttificazione."
-        } else if probFinale >= 65 {
+        if probFinale >= 65 {
+            // VERDE (>65%)
             stato = .buttataProbabile
             messaggio = "Suolo idratato. Probabile fruttificazione in corso."
-        } else if meteo.giorniDaUltimaPioggiaSignificativa <= 3 {
+        } else if probFinale >= 48 {
+            // ARANCIONE (48-64%) -> SEMPRE "IN PREPARAZIONE / INCUBAZIONE"
             stato = .inPreparazione
             messaggio = "Suolo idratato. Inizio fase di incubazione."
-        } else {
+        } else if probFinale >= 30 {
+            // GIALLO (30-47%) -> SEMPRE "IN ESAURIMENTO / CALANTE"
             stato = .inEsaurimento
             messaggio = "Suolo in corso di asciugatura. Fase calante della fruttificazione."
+        } else {
+            // GRIGIO (<30%)
+            stato = .nonFavorevole
+            messaggio = "Suolo non idratato. Condizioni non favorevoli alla fruttificazione."
         }
         
         return RisultatoPrevisione(
@@ -179,11 +173,10 @@ struct PrevisioneEngine {
                     let quota = terrain.quota
                     let isIdonea = DEMService.shared.isQuotaIdonea(quota: quota)
                     let eMare = DEMService.shared.isAreaMareOCosta(lat: lat, lon: lon, quota: quota)
-                    let k_veg = terrain.kVeg
                     
                     let idx = (y * width + x) * 4
                     
-                    if eMare || quota == 0.0 || k_veg <= 0.0 || !isIdonea {
+                    if eMare || quota == 0.0 || !isIdonea {
                         pixels[idx]     = 0
                         pixels[idx + 1] = 0
                         pixels[idx + 2] = 0

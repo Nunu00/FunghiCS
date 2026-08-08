@@ -229,15 +229,19 @@ struct MapViewRepresentable: UIViewRepresentable {
             
             let terrain = DEMService.shared.getTerrainData(latitude: lat, longitude: lon)
             
-            let nomePunto: String
-            if terrain.quota >= 800 {
-                nomePunto = "Punto Toccatо (\(Int(terrain.quota))m s.l.m.)"
+            let massiccio: String
+            if lat >= 39.70 {
+                massiccio = "Massiccio del Pollino"
+            } else if 39.05 <= lat && lat <= 39.60 && lon >= 16.25 {
+                massiccio = "Altopiano della Sila"
             } else {
-                nomePunto = "Punto Toccatо (\(Int(terrain.quota))m s.l.m. - Bassa Quota)"
+                massiccio = "Catena Costiera"
             }
             
+            let nomeIniziale = "\(massiccio) (\(Int(terrain.quota))m s.l.m.)"
+            
             let puntoToccato = PuntoInteresse(
-                nome: nomePunto,
+                nome: nomeIniziale,
                 latitude: lat,
                 longitude: lon,
                 quota: terrain.quota,
@@ -246,6 +250,16 @@ struct MapViewRepresentable: UIViewRepresentable {
             )
             
             parent.onSelectPunto(puntoToccato)
+            
+            // Geocodifica Inversa Asincrona (CLGeocoder) per estrarre la località/comune reale
+            let geocoder = CLGeocoder()
+            let location = CLLocation(latitude: lat, longitude: lon)
+            geocoder.reverseGeocodeLocation(location) { placemarks, error in
+                if let place = placemarks?.first {
+                    let localita = place.locality ?? place.name ?? place.subLocality ?? massiccio
+                    puntoToccato.nome = "\(localita) (\(Int(terrain.quota))m s.l.m.)"
+                }
+            }
         }
         
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
