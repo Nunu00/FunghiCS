@@ -114,9 +114,9 @@ struct MappaView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
-                        generaECollegaCSVDebug()
+                        generaCSVMatricePixelBitmap()
                     } label: {
-                        Label("Esporta CSV", systemImage: "doc.text.fill")
+                        Label("Esporta CSV Pixel", systemImage: "doc.matrix.fill")
                             .font(.caption)
                             .bold()
                     }
@@ -137,7 +137,7 @@ struct MappaView: View {
             .sheet(isPresented: $mostrandoCSVExport) {
                 NavigationStack {
                     VStack(spacing: 12) {
-                        Text("Copia ed incolla il testo sottostante nella chat per consentire l'analisi del modello:")
+                        Text("Matrice CSV Pixel della Mappa di Calore calcolata dall'App (Copia ed incolla nella chat per confronto 1:1):")
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .padding(.horizontal)
@@ -152,9 +152,9 @@ struct MappaView: View {
                         
                         Button {
                             UIPasteboard.general.string = testoCSVGenerato
-                            mostraToast("✅ CSV copiato negli appunti!")
+                            mostraToast("✅ CSV Pixel copiato negli appunti!")
                         } label: {
-                            Label("Copia CSV negli Appunti", systemImage: "doc.on.doc.fill")
+                            Label("Copia CSV Pixel negli Appunti", systemImage: "doc.on.doc.fill")
                                 .font(.headline)
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
@@ -165,7 +165,7 @@ struct MappaView: View {
                         .padding(.horizontal)
                         .padding(.bottom, 12)
                     }
-                    .navigationTitle("📋 Export CSV Debug Mappa")
+                    .navigationTitle("📋 Export CSV Pixel Mappa")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
@@ -214,76 +214,109 @@ struct MappaView: View {
         }
     }
     
-    /// Genera la matrice CSV di debug per i nodi meteo/orografici e la copia negli appunti dell'iPhone
-    private func generaECollegaCSVDebug() {
+    /// Genera la matrice CSV esatta dei pixel della Mappa di Calore (30x30 campionati)
+    private func generaCSVMatricePixelBitmap() {
         var csvLines: [String] = []
-        csvLines.append("Lat,Lon,Quota,Pendenza,Esposizione,CLC_Class,K_veg,SoilType,Pioggia15gg,SogliaCalc,RapportoP,GiorniSenzaPioggia,TempSuolo,DeltaT,UmiditaSuolo,VentoMax,Probabilita,Stato,Messaggio")
+        csvLines.append("GridY,GridX,Lat,Lon,Quota,PioggiaLocale,GiorniSenzaPioggia,Probabilita,StatoColore,HexColor")
+        
+        let width = 300
+        let height = 300
+        let minLat: Double = 38.80
+        let maxLat: Double = 40.35
+        let minLon: Double = 15.80
+        let maxLon: Double = 17.25
         
         let nodi = MeteoService.nodiGrigliaSpaziale
         
-        if nodi.isEmpty {
-            // Se la griglia meteo è ancora in corso di caricamento, usa i punti campione di riferimento
-            let campioni = [
-                (39.1875, 16.4375, "Lorica / Sila Sud (54.6mm)"),
-                (39.1250, 16.5000, "Lago Ampollino / Trepido (53.4mm)"),
-                (39.2500, 16.4375, "Camigliatello / Botte Donato (37.0mm)"),
-                (39.3300, 16.4400, "Sila Grande Nord (22.0mm)"),
-                (39.9375, 16.1875, "Pollino Sommita (25.4mm)")
-            ]
+        // Campionamento 30x30 grid (passo 10 pixel) per catturare tutta la mappa a livello pixel
+        let step = 10
+        
+        for y in stride(from: 0, to: height, by: step) {
+            let lat = maxLat - (Double(y) / Double(height)) * (maxLat - minLat)
             
-            for c in campioni {
-                let lat = c.0
-                let lon = c.1
-                let terrain = DEMService.shared.getTerrainData(latitude: lat, longitude: lon)
-                let meteo = DatiMeteo(
-                    pioggiaCumulata15Giorni: 54.6,
-                    temperaturaMedia: 15.0,
-                    umiditaMedia: 65.0,
-                    umiditaSuoloMiceliare: 0.28,
-                    temperaturaSuolo: 15.0,
-                    deltaTSuolo: 4.0,
-                    velocitaVentoMax: 11.0,
-                    evapotraspirazioneET0: 2.5,
-                    giorniDaUltimaPioggiaSignificativa: 5
-                )
-                let pTemp = PuntoInteresse(nome: c.2, latitude: lat, longitude: lon, quota: terrain.quota, pendenza: terrain.pendenza, esposizione: terrain.esposizione)
-                let res = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: pTemp, meteo: meteo)
+            for x in stride(from: 0, to: width, by: step) {
+                let lon = minLon + (Double(x) / Double(width)) * (maxLon - minLon)
                 
-                let line = String(format: "%.4f,%.4f,%.1f,%.1f,%@,%@,%.2f,%@,%.1f,%.1f,%.2f,%d,%.1f,%.1f,%.2f,%.1f,%d,%@,\"%@\"",
-                                  lat, lon, terrain.quota, terrain.pendenza, terrain.esposizione, terrain.clcClass, terrain.kVeg, terrain.soilType,
-                                  meteo.pioggiaCumulata15Giorni, res.sogliaRichiesta, meteo.pioggiaCumulata15Giorni / max(1.0, res.sogliaRichiesta),
-                                  meteo.giorniDaUltimaPioggiaSignificativa, meteo.temperaturaSuolo, meteo.deltaTSuolo, meteo.umiditaSuoloMiceliare,
-                                  meteo.velocitaVentoMax, res.probabilitaPercentuale, String(describing: res.stato), res.messaggioDettagliato)
-                csvLines.append(line)
-            }
-        } else {
-            // Ordina i nodi per pioggia cumulata decrescente in modo che le zone con piu pioggia compaiano subito in cima
-            let nodiOrdinati = nodi.sorted { $0.pioggia15gg > $1.pioggia15gg }
-            
-            for n in nodiOrdinati {
-                let lat = n.lat
-                let lon = n.lon
                 let terrain = DEMService.shared.getTerrainData(latitude: lat, longitude: lon)
-                let meteo = DatiMeteo(
-                    pioggiaCumulata15Giorni: n.pioggia15gg,
-                    temperaturaMedia: n.tempMedia,
-                    umiditaMedia: 65.0,
-                    umiditaSuoloMiceliare: n.pioggia15gg >= 50.0 ? 0.32 : (n.pioggia15gg >= 30.0 ? 0.25 : 0.16),
-                    temperaturaSuolo: n.tempMedia,
-                    deltaTSuolo: n.pioggia15gg >= 45.0 ? 4.0 : 0.0,
-                    velocitaVentoMax: 10.0,
-                    evapotraspirazioneET0: 2.5,
-                    giorniDaUltimaPioggiaSignificativa: n.giorniDaPioggia
-                )
-                let pTemp = PuntoInteresse(nome: "Nodo Meteo", latitude: lat, longitude: lon, quota: terrain.quota, pendenza: terrain.pendenza, esposizione: terrain.esposizione)
-                let res = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: pTemp, meteo: meteo)
+                let quota = terrain.quota
+                let isIdonea = DEMService.shared.isQuotaIdonea(quota: quota)
+                let eMare = DEMService.shared.isAreaMareOCosta(lat: lat, lon: lon, quota: quota)
                 
-                let line = String(format: "%.4f,%.4f,%.1f,%.1f,%@,%@,%.2f,%@,%.1f,%.1f,%.2f,%d,%.1f,%.1f,%.2f,%.1f,%d,%@,\"%@\"",
-                                  lat, lon, terrain.quota, terrain.pendenza, terrain.esposizione, terrain.clcClass, terrain.kVeg, terrain.soilType,
-                                  meteo.pioggiaCumulata15Giorni, res.sogliaRichiesta, n.pioggia15gg / max(1.0, res.sogliaRichiesta),
-                                  n.giorniDaPioggia, meteo.temperaturaSuolo, meteo.deltaTSuolo, meteo.umiditaSuoloMiceliare,
-                                  meteo.velocitaVentoMax, res.probabilitaPercentuale, String(describing: res.stato), res.messaggioDettagliato)
-                csvLines.append(line)
+                if eMare || quota == 0.0 || !isIdonea {
+                    let line = String(format: "%d,%d,%.4f,%.4f,%.1f,0.0,0,0,Trasparente,#00000000", y, x, lat, lon, quota)
+                    csvLines.append(line)
+                } else {
+                    var pioggiaLocale = 38.0
+                    var tempBase = 16.5
+                    var giorniDaPioggia = 4
+                    
+                    if !nodi.isEmpty {
+                        var pesoTotale = 0.0
+                        var pioggiaPesata = 0.0
+                        var tempPesata = 0.0
+                        var giorniDaPioggiaPesati = 0.0
+                        
+                        for n in nodi {
+                            let d2 = (n.lat - lat)*(n.lat - lat) + (n.lon - lon)*(n.lon - lon)
+                            let w = 1.0 / max(0.0001, d2)
+                            pesoTotale += w
+                            pioggiaPesata += n.pioggia15gg * w
+                            tempPesata += n.tempMedia * w
+                            giorniDaPioggiaPesati += Double(n.giorniDaPioggia) * w
+                        }
+                        
+                        if pesoTotale > 0 {
+                            pioggiaLocale = pioggiaPesata / pesoTotale
+                            tempBase = tempPesata / pesoTotale
+                            giorniDaPioggia = Int(round(giorniDaPioggiaPesati / pesoTotale))
+                        }
+                    }
+                    
+                    let tempQuota = max(8.0, tempBase - max(0.0, (quota - 800.0) / 160.0))
+                    let meteoLocale = DatiMeteo(
+                        pioggiaCumulata15Giorni: pioggiaLocale,
+                        temperaturaMedia: tempQuota,
+                        umiditaMedia: 65.0,
+                        umiditaSuoloMiceliare: pioggiaLocale >= 50.0 ? 0.32 : (pioggiaLocale >= 30.0 ? 0.25 : 0.16),
+                        temperaturaSuolo: tempQuota,
+                        deltaTSuolo: pioggiaLocale >= 45.0 ? 4.0 : 0.0,
+                        velocitaVentoMax: 10.0,
+                        evapotraspirazioneET0: 2.5,
+                        giorniDaUltimaPioggiaSignificativa: giorniDaPioggia
+                    )
+                    
+                    let pTemp = PuntoInteresse(
+                        nome: "Pixel",
+                        latitude: lat,
+                        longitude: lon,
+                        quota: quota,
+                        pendenza: terrain.pendenza,
+                        esposizione: terrain.esposizione
+                    )
+                    let res = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: pTemp, meteo: meteoLocale)
+                    let prob = res.probabilitaPercentuale
+                    
+                    let statoColore: String
+                    let hexColor: String
+                    
+                    if prob >= 65 {
+                        statoColore = "Verde_Buttata"
+                        hexColor = "#22C55EC8"
+                    } else if prob >= 48 {
+                        statoColore = "Arancione_Preparazione"
+                        hexColor = "#F97316C8"
+                    } else if prob >= 30 {
+                        statoColore = "Giallo_Esaurimento"
+                        hexColor = "#EAB308BE"
+                    } else {
+                        statoColore = "Grigio_NonFavorevole"
+                        hexColor = "#9CA3AF8C"
+                    }
+                    
+                    let line = String(format: "%d,%d,%.4f,%.4f,%.1f,%.1f,%d,%d,%@,%@",
+                                      y, x, lat, lon, quota, pioggiaLocale, giorniDaPioggia, prob, statoColore, hexColor)
+                    csvLines.append(line)
+                }
             }
         }
         
@@ -293,7 +326,7 @@ struct MappaView: View {
         // Copia automatica negli appunti di iOS
         UIPasteboard.general.string = csvCompleto
         mostrandoCSVExport = true
-        mostraToast("📋 CSV di Debug copiato negli appunti!")
+        mostraToast("📋 CSV Pixel Mappa di Calore copiato negli appunti!")
     }
     
     private func mostraToast(_ messaggio: String) {
