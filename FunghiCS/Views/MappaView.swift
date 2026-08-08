@@ -20,7 +20,7 @@ struct MappaView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // MapKit nativo tramite UIViewRepresentable per rendering ultra-fluido a 60fps
+                // MapKit nativo tramite UIViewRepresentable per rendering ultra-fluido
                 MapViewRepresentable(
                     punti: punti,
                     risultatiMeteoPunti: risultatiMeteoPunti,
@@ -186,7 +186,7 @@ struct MapViewRepresentable: UIViewRepresentable {
     }
     
     func updateUIView(_ mapView: MKMapView, context: Context) {
-        // Se lo stato dei toggle cambia, rimuovi e ri-aggiungi l'overlay per FORZARE il ridisegno immediato a schermo!
+        // Se lo stato dei toggle cambia, rimuovi e ri-aggiungi l'overlay per FORZARE il ridisegno immediato a schermo
         if context.coordinator.lastMostraMappa != mostraMappaDiCalore || context.coordinator.lastFiltraZone != filtraSoloZoneIdonee {
             context.coordinator.lastMostraMappa = mostraMappaDiCalore
             context.coordinator.lastFiltraZone = filtraSoloZoneIdonee
@@ -215,6 +215,7 @@ struct MapViewRepresentable: UIViewRepresentable {
         var lastMostraMappa: Bool = true
         var lastFiltraZone: Bool = true
         private var currentPuntiIds: Set<UUID> = []
+        private var lastResultCount: Int = 0
         
         init(parent: MapViewRepresentable) {
             self.parent = parent
@@ -233,8 +234,11 @@ struct MapViewRepresentable: UIViewRepresentable {
         
         func aggiornaAnnotations(mapView: MKMapView, punti: [PuntoInteresse], risultati: [UUID: RisultatoPrevisione]) {
             let pIds = Set(punti.map { $0.id })
-            if pIds == currentPuntiIds { return }
+            let resCount = risultati.count
+            
+            if pIds == currentPuntiIds && resCount == lastResultCount { return }
             currentPuntiIds = pIds
+            lastResultCount = resCount
             
             mapView.removeAnnotations(mapView.annotations)
             
@@ -256,12 +260,16 @@ struct MapViewRepresentable: UIViewRepresentable {
                 view?.annotation = annotation
             }
             
-            let res = parent.risultatiMeteoPunti[puntoAnn.punto.id]
-            let prob = res?.probabilitaPercentuale ?? 60
-            let colore = res?.stato.colore ?? .green
-            
-            view?.glyphText = "\(prob)%"
-            view?.markerTintColor = UIColor(colore)
+            if let res = parent.risultatiMeteoPunti[puntoAnn.punto.id] {
+                let prob = res.probabilitaPercentuale
+                let colore = res.stato.colore
+                view?.glyphText = "\(prob)%"
+                view?.markerTintColor = UIColor(colore)
+            } else {
+                // Durante il caricamento live del meteo, mostra '...' senza fallback 60%
+                view?.glyphText = "..."
+                view?.markerTintColor = .systemGray
+            }
             view?.titleVisibility = .visible
             
             return view

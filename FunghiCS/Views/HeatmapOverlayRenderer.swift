@@ -62,7 +62,7 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
         context.setAllowsAntialiasing(true)
         context.interpolationQuality = .high
         
-        // CORREZIONE ASSE Y: Ribalta l'immagine in verticale affinché il Nord (Pollino) vada in alto ed il Sud in basso!
+        // CORREZIONE ASSE Y: Ribalta l'immagine in verticale per far coincidere il Nord in alto ed il Sud in basso
         context.translateBy(x: drawRect.origin.x, y: drawRect.origin.y + drawRect.size.height)
         context.scaleBy(x: 1.0, y: -1.0)
         let localDrawRect = CGRect(x: 0, y: 0, width: drawRect.size.width, height: drawRect.size.height)
@@ -71,21 +71,25 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
         context.restoreGState()
     }
     
-    /// Genera la mappa di calore come bitmap sfumata continua basata sul DEM reale TINITALY 2800+ punti
+    /// Genera la mappa di calore a 450x450 pixel usando la PROIEZIONE DI MERCATORE UFFICIALE MAPKIT per combaciare al 100% con la mappa
     private func generaBitmapCaloreContinuo() -> CGImage? {
-        let width = 240
-        let height = 260
+        let width = 450
+        let height = 450
         
         var pixels = [UInt8](repeating: 0, count: width * height * 4)
-        
-        let latSpan = CosenzaHeatmapOverlay.maxLat - CosenzaHeatmapOverlay.minLat
-        let lonSpan = CosenzaHeatmapOverlay.maxLon - CosenzaHeatmapOverlay.minLon
+        let overlayRect = self.overlay.boundingMapRect
         
         for y in 0..<height {
-            let lat = CosenzaHeatmapOverlay.maxLat - (Double(y) / Double(height)) * latSpan
+            // Conversione coordinata Y tramite Proiezione di Mercatore MapKit
+            let mapY = overlayRect.origin.y + (Double(y) / Double(height)) * overlayRect.size.height
             
             for x in 0..<width {
-                let lon = CosenzaHeatmapOverlay.minLon + (Double(x) / Double(width)) * lonSpan
+                let mapX = overlayRect.origin.x + (Double(x) / Double(width)) * overlayRect.size.width
+                
+                let mapPoint = MKMapPoint(x: mapX, y: mapY)
+                let coord = mapPoint.coordinate
+                let lat = coord.latitude
+                let lon = coord.longitude
                 
                 let terrain = DEMService.shared.getTerrainData(latitude: lat, longitude: lon)
                 let quota = terrain.quota
@@ -103,13 +107,13 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
                 } else if !isIdonea {
                     // Bassa quota (<800m)
                     if filtraSoloZoneIdonee {
-                        // Se il filtro >800m è ATTIVO: 100% Trasparente!
+                        // Filtro >800m ATTIVO -> 100% Trasparente!
                         pixels[idx]     = 0
                         pixels[idx + 1] = 0
                         pixels[idx + 2] = 0
                         pixels[idx + 3] = 0
                     } else {
-                        // Se il filtro >800m è DISATTIVATO: Grigio/Azzurro trasparente per mostrare le valli!
+                        // Filtro >800m DISATTIVATO -> Grigio/Azzurro trasparente per evidenziare le valli
                         pixels[idx]     = 160 // R
                         pixels[idx + 1] = 180 // G
                         pixels[idx + 2] = 220 // B
@@ -117,8 +121,8 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
                     }
                 } else {
                     // Zona Montana/Boschiva (>=800m s.l.m.) -> Calcolo Fruttificazione Reale
-                    let pioggiaQuota = min(95.0, 48.0 + (quota / 35.0))
-                    let tempQuota = max(7.0, 21.0 - (quota / 140.0))
+                    let pioggiaQuota = min(95.0, 50.0 + (quota / 30.0))
+                    let tempQuota = max(10.0, 24.0 - (quota / 180.0)) // Gradiente termico bilanciato per vette montane
                     
                     let meteoLocale = DatiMeteo(pioggiaCumulata15Giorni: pioggiaQuota, temperaturaMedia: tempQuota, giorniDaUltimaPioggiaSignificativa: 4)
                     
@@ -162,7 +166,7 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
             }
         }
         
-        // Applicazione sfocatura box-blur 3x3 per una mappa termica 100% fluida
+        // Sfocatura box-blur 3x3 per sfumatura continua dei colori
         var sfumato = sfocaBitmap(pixels: pixels, width: width, height: height)
         
         let colorSpace = CGColorSpaceCreateDeviceRGB()
@@ -188,7 +192,6 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
         )
     }
     
-    /// Sfocatura box-blur 3x3 per eliminare bordi rigidi
     private func sfocaBitmap(pixels: [UInt8], width: Int, height: Int) -> [UInt8] {
         var output = pixels
         

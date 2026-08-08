@@ -43,16 +43,16 @@ struct PrevisioneEngine {
         let sogliaFinaleCalcolata = sogliaBase * fattoreCorrezione
         let pioggia = meteo.pioggiaCumulata15Giorni
         
-        // 5. Temperatura Check (Temperatura media ideale tra 10°C e 24°C)
+        // 5. Temperatura Check (Range ideale boschi e pinete montane: 6.0°C - 26.0°C)
         let tempCentigradi = meteo.temperaturaMedia
-        let tempFavorevole = (tempCentigradi >= 9.0 && tempCentigradi <= 25.0)
+        let tempFavorevole = (tempCentigradi >= 6.0 && tempCentigradi <= 26.0)
         
         // Calcolo della percentuale base di probabilità (0 - 100%)
         let rapportoPioggia = pioggia / max(1.0, sogliaFinaleCalcolata)
-        var probBase = min(100.0, rapportoPioggia * 75.0)
+        var probBase = min(100.0, rapportoPioggia * 80.0)
         
         if !tempFavorevole {
-            probBase *= 0.4 // penalizzazione se temperatura troppo rigida o caldissima
+            probBase *= 0.4 // penalizzazione se temperatura estrema
         }
         
         let probFinale = Int(max(0.0, min(100.0, probBase)))
@@ -100,15 +100,12 @@ struct PrevisioneEngine {
         var adeguamento: Double = 0.0
         for obs in osservazioni {
             if obs.trovato {
-                // Trovato funghi -> facilità maggiore del previsto, abbassa leggermente la soglia richiesta
                 adeguamento -= 0.05
             } else {
-                // Uscita a vuoto -> alza leggermente la soglia richiesta
                 adeguamento += 0.05
             }
         }
         
-        // Applica l'adeguamento limitandolo a un range di sicurezza [0.6, 1.5]
         let nuovoMoltiplicatore = punto.moltiplicatoreSoglia + adeguamento
         punto.moltiplicatoreSoglia = max(0.6, min(1.5, nuovoMoltiplicatore))
     }
