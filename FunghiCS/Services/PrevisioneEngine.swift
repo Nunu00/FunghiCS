@@ -14,7 +14,7 @@ struct PrevisioneEngine {
         
         // Determina K_veg: per i punti montani (>=800m s.l.m.), K_veg è 1.0 a meno che non sia uno specchio d'acqua o roccia
         let kVeg: Double
-        if terrainInfo.clcClass == "CLC_512_Water_Bodies" || terrainInfo.clcClass == "CLC_332_Bare_Rock_Screes" || terrainInfo.kVeg <= 0.0 {
+        if terrainInfo.clcClass == "CLC_512_Water_Bodies" || terrainInfo.clcClass == "CLC_332_Bare_Rock_Screes" {
             kVeg = 0.00
         } else if quotaPunto >= 800.0 {
             kVeg = 1.00
