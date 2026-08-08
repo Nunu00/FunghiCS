@@ -170,10 +170,10 @@ struct PrevisioneEngine {
             guard let rawPointer = bitmapContext.data else { return nil }
             let pixels = rawPointer.bindMemory(to: UInt8.self, capacity: width * height * 4)
             
-            let minLat = CosenzaHeatmapOverlay.minLat
-            let maxLat = CosenzaHeatmapOverlay.maxLat
-            let minLon = CosenzaHeatmapOverlay.minLon
-            let maxLon = CosenzaHeatmapOverlay.maxLon
+            let minLat: Double = 38.80
+            let maxLat: Double = 40.35
+            let minLon: Double = 15.80
+            let maxLon: Double = 17.25
             
             let nodi = MeteoService.nodiGrigliaSpaziale
             

@@ -290,6 +290,8 @@
 				10010005 /* RisultatoPrevisione.swift in Sources */,
 				10010006 /* PrevisioneEngine.swift in Sources */,
 				10010007 /* DEMService.swift in Sources */,
+				10010008 /* MeteoService.swift in Sources */,
+				10010020 /* HeatmapOverlayRenderer.swift in Sources */,
 				10010015 /* PrevisioneEngineTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
