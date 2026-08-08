@@ -32,17 +32,17 @@ actor MeteoService {
             let decoded = try JSONDecoder().decode(OpenMeteoResponse.self, from: data)
             return DatiMeteo.daOpenMeteo(decoded)
         } catch {
-            return DatiMeteo(pioggiaCumulata15Giorni: 28.0, temperaturaMedia: 16.5, umiditaMedia: 68.0, umiditaSuolo: 0.28, giorniDaUltimaPioggiaSignificativa: 5)
+            return DatiMeteo(pioggiaCumulata15Giorni: 28.0, temperaturaMedia: 16.5, umiditaMedia: 68.0, umiditaSuoloMiceliare: 0.28, giorniDaUltimaPioggiaSignificativa: 5)
         }
     }
     
-    /// Scarica in UN'UNICA CHIAMATA HTTP la griglia meteo a 64 nodi CONCENTRATI ESCLUSIVAMENTE SULLE ZONE MONTANE >=800m s.l.m.
-    /// per risolvere con precisione chirurgica i temporali estivi nei boschi!
+    /// Scarica in UN'UNICA CHIAMATA HTTP la griglia meteo a 100 NODI (MASSIMO ASSOLUTO) CONCENTRATI ESCLUSIVAMENTE SULLE ZONE MONTANE >=800m s.l.m.
+    /// per risolvere con precisione chirurgica di ~2km i temporali estivi nei boschi!
     func fetchGrigliaMeteoSpaziale() async -> [NodoMeteoSpaziale] {
         let puntiMontani = DEMService.shared.getPuntiMontaniIdonei()
         guard !puntiMontani.isEmpty else { return [] }
         
-        let targetCount = 64
+        let targetCount = 100 // Massimo assoluto consentito dalle API di Open-Meteo in 1 chiamata
         let step = max(1, puntiMontani.count / targetCount)
         
         var coords: [(lat: Double, lon: Double)] = []
