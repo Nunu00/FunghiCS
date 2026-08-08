@@ -73,8 +73,9 @@ final class PrevisioneEngineTests: XCTestCase {
         XCTAssertFalse(dem.isQuotaIdonea(quota: 400.0)) // 400m -> sotto la quota di 800m
         XCTAssertTrue(dem.isQuotaIdonea(quota: 950.0))  // 950m -> quota idonea
         
-        // Verifica maschera mare sul Tirreno
-        XCTAssertTrue(dem.isAreaMareOCosta(lat: 39.5, lon: 15.8, quota: 950.0))
+        // Verifica maschera mare (quota <= 20m)
+        XCTAssertTrue(dem.isAreaMareOCosta(lat: 39.5, lon: 15.8, quota: 10.0))
+        XCTAssertFalse(dem.isAreaMareOCosta(lat: 39.5, lon: 15.8, quota: 950.0))
         
         // Verifica orografia DEM per la Sila (quota > 800m)
         let terrainSila = dem.getTerrainData(latitude: 39.35, longitude: 16.45)
