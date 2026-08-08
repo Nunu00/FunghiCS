@@ -7,11 +7,17 @@ extension Notification.Name {
     static let heatmapDataUpdated = Notification.Name("HeatmapDataUpdatedNotification")
 }
 
+enum TipoMappaOverlay: String, CaseIterable, Identifiable {
+    case fruttificazione = "Fruttificazione"
+    case precipitazioni = "Pioggia 15gg"
+    
+    var id: String { rawValue }
+}
+
 final class CosenzaHeatmapOverlay: NSObject, MKOverlay {
     let boundingMapRect: MKMapRect
     let coordinate: CLLocationCoordinate2D
     
-    // Bounding Box Provincia di Cosenza e Basilicata (Est, Sud, Nord)
     static let minLat: Double = 38.80
     static let maxLat: Double = 40.35
     static let minLon: Double = 15.80
@@ -37,13 +43,15 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
     var mostraMappaCalore: Bool = true
     var filtraSoloZoneIdonee: Bool = true
     
-    static var sharedCGImage: CGImage? = nil
+    static var tipoMappaCorrente: TipoMappaOverlay = .fruttificazione
+    static var sharedFruttificazioneCGImage: CGImage? = nil
+    static var sharedPrecipitazioniCGImage: CGImage? = nil
+    
     private var notificationObserver: NSObjectProtocol? = nil
     
     override init(overlay: MKOverlay) {
         super.init(overlay: overlay)
         
-        // Ascolta aggiornamenti per invalidare la vista MapKit
         notificationObserver = NotificationCenter.default.addObserver(
             forName: .heatmapDataUpdated,
             object: nil,
@@ -60,7 +68,16 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
     }
     
     override func draw(_ mapRect: MKMapRect, zoomScale: MKZoomScale, in context: CGContext) {
-        guard mostraMappaCalore, let cgImage = CosenzaHeatmapOverlayRenderer.sharedCGImage else { return }
+        guard mostraMappaCalore else { return }
+        
+        let cgImage: CGImage?
+        if CosenzaHeatmapOverlayRenderer.tipoMappaCorrente == .fruttificazione {
+            cgImage = CosenzaHeatmapOverlayRenderer.sharedFruttificazioneCGImage
+        } else {
+            cgImage = CosenzaHeatmapOverlayRenderer.sharedPrecipitazioniCGImage
+        }
+        
+        guard let imageToDraw = cgImage else { return }
         
         let overlayRect = self.overlay.boundingMapRect
         if !mapRect.intersects(overlayRect) { return }
@@ -72,12 +89,11 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
         context.setAllowsAntialiasing(true)
         context.interpolationQuality = .high
         
-        // Ribalta l'asse Y per far coincidere il Nord in alto ed il Sud in basso
         context.translateBy(x: drawRect.origin.x, y: drawRect.origin.y + drawRect.size.height)
         context.scaleBy(x: 1.0, y: -1.0)
         let localDrawRect = CGRect(x: 0, y: 0, width: drawRect.size.width, height: drawRect.size.height)
         
-        context.draw(cgImage, in: localDrawRect)
+        context.draw(imageToDraw, in: localDrawRect)
         context.restoreGState()
     }
 }

@@ -88,8 +88,11 @@ struct SplashScreenView: View {
             }
             
             let heatmapImg = await PrevisioneEngine.generaHeatmapBitmap()
+            let rainImg = await PrevisioneEngine.generaPrecipitazioniBitmap()
+            
             await MainActor.run {
-                CosenzaHeatmapOverlayRenderer.sharedCGImage = heatmapImg
+                CosenzaHeatmapOverlayRenderer.sharedFruttificazioneCGImage = heatmapImg
+                CosenzaHeatmapOverlayRenderer.sharedPrecipitazioniCGImage = rainImg
                 NotificationCenter.default.post(name: .heatmapDataUpdated, object: nil)
                 progresso = 1.0
                 messaggioStato = "Mappa pronta!"

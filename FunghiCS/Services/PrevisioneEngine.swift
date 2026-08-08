@@ -132,7 +132,7 @@ struct PrevisioneEngine {
         )
     }
     
-    /// Pre-calcola la bitmap CGImage della mappa di calore in background una sola volta per eliminare ogni loop in draw()
+    /// Pre-calcola la bitmap CGImage della mappa di calore della fruttificazione
     static func generaHeatmapBitmap() async -> CGImage? {
         return await Task.detached(priority: .userInitiated) { () -> CGImage? in
             let width = 300
@@ -262,6 +262,112 @@ struct PrevisioneEngine {
             }
             
             print("✅ [DEBUG] Heatmap CGImage pre-calcolata con successo in memoria heap!")
+            return bitmapContext.makeImage()
+        }.value
+    }
+    
+    /// Pre-calcola la bitmap CGImage della mappa Radar Precipitazioni 15 giorni (mm)
+    static func generaPrecipitazioniBitmap() async -> CGImage? {
+        return await Task.detached(priority: .userInitiated) { () -> CGImage? in
+            let width = 300
+            let height = 300
+            let bytesPerRow = width * 4
+            let colorSpace = CGColorSpaceCreateDeviceRGB()
+            let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
+            
+            guard let bitmapContext = CGContext(
+                data: nil,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: bytesPerRow,
+                space: colorSpace,
+                bitmapInfo: bitmapInfo
+            ) else {
+                return nil
+            }
+            
+            guard let rawPointer = bitmapContext.data else { return nil }
+            let pixels = rawPointer.bindMemory(to: UInt8.self, capacity: width * height * 4)
+            
+            let minLat: Double = 38.80
+            let maxLat: Double = 40.35
+            let minLon: Double = 15.80
+            let maxLon: Double = 17.25
+            
+            let nodi = MeteoService.nodiGrigliaSpaziale
+            
+            for y in 0..<height {
+                let lat = maxLat - (Double(y) / Double(height)) * (maxLat - minLat)
+                
+                for x in 0..<width {
+                    let lon = minLon + (Double(x) / Double(width)) * (maxLon - minLon)
+                    
+                    let terrain = DEMService.shared.getTerrainData(latitude: lat, longitude: lon)
+                    let quota = terrain.quota
+                    let isIdonea = DEMService.shared.isQuotaIdonea(quota: quota)
+                    let eMare = DEMService.shared.isAreaMareOCosta(lat: lat, lon: lon, quota: quota)
+                    
+                    let idx = (y * width + x) * 4
+                    
+                    if eMare || quota == 0.0 || !isIdonea {
+                        pixels[idx]     = 0
+                        pixels[idx + 1] = 0
+                        pixels[idx + 2] = 0
+                        pixels[idx + 3] = 0
+                    } else {
+                        var pioggiaLocale = 38.0
+                        
+                        if !nodi.isEmpty {
+                            var pesoTotale = 0.0
+                            var pioggiaPesata = 0.0
+                            for n in nodi {
+                                let d2 = (n.lat - lat)*(n.lat - lat) + (n.lon - lon)*(n.lon - lon)
+                                let w = 1.0 / max(0.0001, d2)
+                                pesoTotale += w
+                                pioggiaPesata += n.pioggia15gg * w
+                            }
+                            if pesoTotale > 0 {
+                                pioggiaLocale = pioggiaPesata / pesoTotale
+                            }
+                        }
+                        
+                        if pioggiaLocale >= 70.0 {
+                            // Blu Scuro Elettrico (Abbondante >= 70mm)
+                            pixels[idx]     = 30
+                            pixels[idx + 1] = 64
+                            pixels[idx + 2] = 175
+                            pixels[idx + 3] = 210
+                        } else if pioggiaLocale >= 45.0 {
+                            // Azzurro Ciano Intenso (Ottima 45-69mm)
+                            pixels[idx]     = 6
+                            pixels[idx + 1] = 182
+                            pixels[idx + 2] = 212
+                            pixels[idx + 3] = 200
+                        } else if pioggiaLocale >= 25.0 {
+                            // Verde Acqua Smeraldo (Moderata 25-44mm)
+                            pixels[idx]     = 16
+                            pixels[idx + 1] = 185
+                            pixels[idx + 2] = 129
+                            pixels[idx + 3] = 190
+                        } else if pioggiaLocale >= 10.0 {
+                            // Giallo Sabbia (Scarsa 10-24mm)
+                            pixels[idx]     = 234
+                            pixels[idx + 1] = 179
+                            pixels[idx + 2] = 8
+                            pixels[idx + 3] = 170
+                        } else {
+                            // Grigio Trasparente (<10mm)
+                            pixels[idx]     = 156
+                            pixels[idx + 1] = 163
+                            pixels[idx + 2] = 175
+                            pixels[idx + 3] = 120
+                        }
+                    }
+                }
+            }
+            
+            print("✅ [DEBUG] Heatmap Precipitazioni 15gg CGImage pre-calcolata con successo!")
             return bitmapContext.makeImage()
         }.value
     }

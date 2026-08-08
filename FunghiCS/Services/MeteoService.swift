@@ -115,10 +115,13 @@ actor MeteoService {
             MeteoService.nodiGrigliaSpaziale = nodi
             print("✅ Scaricati con successo \(nodi.count) nodi Radar/Satellite CONCENTRATI IN MONTAGNA (>=800m)!")
             
-            // Rigenera la bitmap della mappa di calore con la nuova griglia meteo reale
-            let nuovaBitmap = await PrevisioneEngine.generaHeatmapBitmap()
+            // Rigenera le bitmap della mappa di calore fruttificazione e pioggia con la nuova griglia meteo reale
+            let nuovaBitmapFrutt = await PrevisioneEngine.generaHeatmapBitmap()
+            let nuovaBitmapRain = await PrevisioneEngine.generaPrecipitazioniBitmap()
+            
             await MainActor.run {
-                CosenzaHeatmapOverlayRenderer.sharedCGImage = nuovaBitmap
+                CosenzaHeatmapOverlayRenderer.sharedFruttificazioneCGImage = nuovaBitmapFrutt
+                CosenzaHeatmapOverlayRenderer.sharedPrecipitazioniCGImage = nuovaBitmapRain
                 NotificationCenter.default.post(name: .heatmapDataUpdated, object: nil)
             }
             
