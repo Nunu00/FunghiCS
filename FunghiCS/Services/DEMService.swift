@@ -23,6 +23,9 @@ final class DEMService {
     static let shared = DEMService()
     
     private var demData: DEMDataFile?
+    private var spatialGrid: [[DEMGridPoint?]] = []
+    private let gridRows = 350
+    private let gridCols = 350
     
     private init() {
         caricaDEMJSON()
@@ -40,8 +43,29 @@ final class DEMService {
         do {
             let data = try Data(contentsOf: validUrl)
             let decoder = JSONDecoder()
-            self.demData = try decoder.decode(DEMDataFile.self, from: data)
-            print("✅ DEM TINITALY con Copernicus CLC 2018 e Suoli caricato con successo: \(self.demData?.points.count ?? 0) punti orografici reali.")
+            let loaded = try decoder.decode(DEMDataFile.self, from: data)
+            self.demData = loaded
+            
+            // Costruzione della Griglia Spaziale O(1) in memoria (350x350 bucket)
+            var grid = Array(repeating: Array<DEMGridPoint?>(repeating: nil, count: gridCols), count: gridRows)
+            let minLat = loaded.minLat
+            let maxLat = loaded.maxLat
+            let minLon = loaded.minLon
+            let maxLon = loaded.maxLon
+            
+            let dLat = maxLat - minLat
+            let dLon = maxLon - minLon
+            
+            if dLat > 0 && dLon > 0 {
+                for p in loaded.points {
+                    let r = min(gridRows - 1, max(0, Int(((maxLat - p.lat) / dLat) * Double(gridRows - 1))))
+                    let c = min(gridCols - 1, max(0, Int(((p.lon - minLon) / dLon) * Double(gridCols - 1))))
+                    grid[r][c] = p
+                }
+            }
+            
+            self.spatialGrid = grid
+            print("✅ DEM TINITALY O(1) con Copernicus CLC 2018 e Suoli caricato con successo: \(loaded.points.count) punti orografici reali.")
         } catch {
             print("❌ Errore decodifica DEM JSON: \(error)")
         }
@@ -57,7 +81,7 @@ final class DEMService {
         return quota <= 20.0
     }
     
-    /// Restituisce la quota e i parametri orografici/satellitari/suolo reali per qualsiasi coordinate lat/lon
+    /// Restituisce la quota e i parametri orografici/satellitari/suolo reali in O(1) sub-millisecondo
     func getTerrainData(latitude: Double, longitude: Double) -> (
         quota: Double,
         pendenza: Double,
@@ -68,24 +92,44 @@ final class DEMService {
         nomeVegetazione: String,
         nomeSuolo: String
     ) {
-        guard let data = demData, !data.points.isEmpty else {
+        guard let data = demData, !spatialGrid.isEmpty else {
             return (0.0, 0.0, "N", 0.0, "farmland_urban", "CLC_211", "Zona non boschiva", "Terreno Agricolo/Urbano")
         }
         
-        var minDistSq = Double.greatestFiniteMagnitude
+        let minLat = data.minLat
+        let maxLat = data.maxLat
+        let minLon = data.minLon
+        let maxLon = data.maxLon
+        
+        let dLat = maxLat - minLat
+        let dLon = maxLon - minLon
+        
         var migliorPunto: DEMGridPoint? = nil
         
-        for point in data.points {
-            let dLat = point.lat - latitude
-            let dLon = point.lon - longitude
-            let distSq = dLat * dLat + dLon * dLon
-            if distSq < minDistSq {
-                minDistSq = distSq
-                migliorPunto = point
+        if dLat > 0 && dLon > 0 {
+            let r = min(gridRows - 1, max(0, Int(((maxLat - latitude) / dLat) * Double(gridRows - 1))))
+            let c = min(gridCols - 1, max(0, Int(((longitude - minLon) / dLon) * Double(gridCols - 1))))
+            
+            migliorPunto = spatialGrid[r][c]
+            
+            // Se la cella esatta è vuota, cerca nelle 8 celle adiacenti
+            if migliorPunto == nil {
+                outerLoop: for dr in -1...1 {
+                    for dc in -1...1 {
+                        let nr = r + dr
+                        let nc = c + dc
+                        if nr >= 0 && nr < gridRows && nc >= 0 && nc < gridCols {
+                            if let candidate = spatialGrid[nr][nc] {
+                                migliorPunto = candidate
+                                break outerLoop
+                            }
+                        }
+                    }
+                }
             }
         }
         
-        if let punto = migliorPunto, minDistSq < 0.008 {
+        if let punto = migliorPunto {
             let clc = punto.clcClass ?? "CLC_311"
             let kv = punto.kVeg ?? (punto.elevation >= 800.0 ? 1.0 : 0.0)
             let soil = punto.soilType ?? "sandy_granite"
