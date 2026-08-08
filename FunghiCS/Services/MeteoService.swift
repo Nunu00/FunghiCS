@@ -11,7 +11,8 @@ struct NodoMeteoSpaziale {
 actor MeteoService {
     static let shared = MeteoService()
     
-    private(set) var nodiGrigliaSpaziale: [NodoMeteoSpaziale] = []
+    // Griglia spaziale condivisa non-isolata per accesso sincrono immediato nel renderer della mappa
+    nonisolated(unsafe) static var nodiGrigliaSpaziale: [NodoMeteoSpaziale] = []
     
     private init() {}
     
@@ -77,7 +78,7 @@ actor MeteoService {
                 nodi.append(nodo)
             }
             
-            self.nodiGrigliaSpaziale = nodi
+            MeteoService.nodiGrigliaSpaziale = nodi
             print("✅ Scaricati con successo \(nodi.count) nodi Radar/Satellite CONCENTRATI IN MONTAGNA (>=800m)!")
             return nodi
             

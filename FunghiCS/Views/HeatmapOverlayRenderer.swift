@@ -121,7 +121,7 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
                     }
                 } else {
                     // Zona Montana/Boschiva (>=800m s.l.m.) -> Calcolo Fruttificazione Reale da Griglia Spaziale
-                    let nodi = MeteoService.shared.nodiGrigliaSpaziale
+                    let nodi = MeteoService.nodiGrigliaSpaziale
                     
                     var pioggiaLocale = 28.0
                     var tempBase = 16.5
