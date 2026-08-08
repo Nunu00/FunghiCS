@@ -8,19 +8,18 @@ struct PrevisioneEngine {
     static func calcolaProbabilitaFruttificazione(punto: PuntoInteresse, meteo: DatiMeteo) -> RisultatoPrevisione {
         let terrainInfo = DEMService.shared.getTerrainData(latitude: punto.latitude, longitude: punto.longitude)
         
-        // Utilizza le proprietà esplicite del punto o ripiega sui dati altimetrici del DEM
         let quotaPunto = punto.quota > 0 ? punto.quota : terrainInfo.quota
         let pendenzaPunto = punto.pendenza > 0 ? punto.pendenza : terrainInfo.pendenza
         let esposizionePunto = !punto.esposizione.isEmpty ? punto.esposizione : terrainInfo.esposizione
         
         // Determina K_veg: per i punti montani (>=800m s.l.m.), K_veg è 1.0 a meno che non sia uno specchio d'acqua o roccia
         let kVeg: Double
-        if terrainInfo.kVeg > 0.0 {
-            kVeg = terrainInfo.kVeg
+        if terrainInfo.clcClass == "CLC_512_Water_Bodies" || terrainInfo.clcClass == "CLC_332_Bare_Rock_Screes" || terrainInfo.kVeg <= 0.0 {
+            kVeg = 0.00
         } else if quotaPunto >= 800.0 {
             kVeg = 1.00
         } else {
-            kVeg = 0.00
+            kVeg = terrainInfo.kVeg
         }
         
         let soilType = terrainInfo.soilType
@@ -32,7 +31,7 @@ struct PrevisioneEngine {
                 probabilitaPercentuale: 0,
                 pioggiaCumulata15gg: meteo.pioggiaCumulata15Giorni,
                 sogliaRichiesta: 60.0,
-                messaggioDettagliato: "Superficie non boschiva (\(terrainInfo.nomeVegetazione)). I funghi micorrizici nascono solo in simbiosi con gli alberi.",
+                messaggioDettagliato: "Superficie non boschiva (\(terrainInfo.nomeVegetazione)). Condizioni non idonee.",
                 ritardoGiorniQuota: 0
             )
         }
@@ -77,12 +76,12 @@ struct PrevisioneEngine {
         var pMax = min(100.0, rapportoPioggia * 85.0)
         
         if !tempFavorevole {
-            pMax *= 0.4 // Penalizzazione se terreno troppo freddo o troppo caldo
+            pMax *= 0.4
         }
         
         // 6. Bonus Shock Termico del Terreno (Delta T >= 3.5°C)
         if meteo.deltaTSuolo >= 3.5 && pioggia >= 20.0 {
-            pMax *= 1.20 // +20% bonus innesco da shock termico
+            pMax *= 1.20
         }
         
         // 7. Penalizzazione Vento Secco (Vento > 22 km/h o alta evapotraspirazione)
@@ -111,29 +110,22 @@ struct PrevisioneEngine {
         
         let probFinale = Int(max(0.0, min(100.0, probCalc)))
         
-        // 10. Determinazione dello Stato Temporale
-        let giorniDaPioggia = meteo.giorniDaUltimaPioggiaSignificativa
+        // 10. Determinazione dello Stato e del Messaggio di Sintesi Semplificato
         let stato: StatoFruttificazione
         let messaggio: String
         
         if probFinale < 30 {
             stato = .nonFavorevole
-            messaggio = "Condizioni non favorevoli (\(String(format: "%.1f", pioggia))mm / \(String(format: "%.1f", sogliaFinaleCalcolata))mm). Suolo secco (\(String(format: "%.2f", meteo.umiditaSuoloMiceliare))m³/m³) o tempo incubazione scaduto."
+            messaggio = "Suolo non idratato. Condizioni non favorevoli alla fruttificazione."
+        } else if probFinale >= 65 {
+            stato = .buttataProbabile
+            messaggio = "Suolo idratato. Probabile fruttificazione in corso."
+        } else if meteo.giorniDaUltimaPioggiaSignificativa <= 3 {
+            stato = .inPreparazione
+            messaggio = "Suolo idratato. Inizio fase di incubazione."
         } else {
-            switch giorniDaPioggia {
-            case 0...3:
-                stato = .inPreparazione
-                messaggio = "Fase di Incubazione (Innesco Primordi). Pioggia penetrata nel suolo, picco della buttata previsto tra 3-5 giorni."
-            case 4...9:
-                stato = .buttataProbabile
-                messaggio = "Picco della Campana di Gauss! Suolo idratato (\(terrainInfo.nomeSuolo)), probabile fruttificazione in corso."
-            case 10...14:
-                stato = .inEsaurimento
-                messaggio = "Fase Calante della Campana. Umidità del suolo in esaurimento, buttata in fase di termine."
-            default:
-                stato = .nonFavorevole
-                messaggio = "Troppi giorni trascorsi dall'ultimo evento piovoso significativo."
-            }
+            stato = .inEsaurimento
+            messaggio = "Suolo in corso di asciugatura. Fase calante della fruttificazione."
         }
         
         return RisultatoPrevisione(

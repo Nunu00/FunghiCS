@@ -15,9 +15,9 @@ struct DettaglioPuntoView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     
-                    // Card Previsione Principale
+                    // Card Previsione Principale (Sintesi Pulita)
                     if let prev = previsione {
-                        VStack(spacing: 8) {
+                        VStack(spacing: 10) {
                             HStack {
                                 Image(systemName: prev.stato.icona)
                                     .font(.system(size: 36))
@@ -35,8 +35,8 @@ struct DettaglioPuntoView: View {
                             Divider()
                             
                             Text(prev.messaggioDettagliato)
-                                .font(.body)
-                                .multilineTextAlignment(.leading)
+                                .font(.body).bold()
+                                .foregroundColor(.primary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .padding()
@@ -47,9 +47,9 @@ struct DettaglioPuntoView: View {
                             .padding()
                     }
                     
-                    // Dati Altimetrici, Satellitari Copernicus & Morfologia Terreno
+                    // Card 2: Terreno, Altimetria & Satellitare (Copernicus)
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Terreno, Altimetria & Satellitare (Copernicus)")
+                        Text("Terreno & Copertura Satellitare Copernicus")
                             .font(.headline)
                         
                         let tInfo = DEMService.shared.getTerrainData(latitude: punto.latitude, longitude: punto.longitude)
@@ -66,12 +66,14 @@ struct DettaglioPuntoView: View {
                                 Text(punto.esposizione)
                                 Text("Idoneità K_veg:").bold()
                                 Text("\(String(format: "%.2f", tInfo.kVeg))x")
+                                    .foregroundColor(tInfo.kVeg > 0 ? .green : .red)
+                                    .bold()
                             }
                             GridRow {
                                 Text("Bosco Satellite:").bold()
                                 Text(tInfo.nomeVegetazione)
                                     .font(.caption).bold()
-                                    .foregroundColor(.green)
+                                    .foregroundColor(tInfo.kVeg > 0 ? .green : .orange)
                             }
                             GridRow {
                                 Text("Trama Suolo:").bold()
@@ -86,25 +88,32 @@ struct DettaglioPuntoView: View {
                     .background(Color(.secondarySystemBackground))
                     .cornerRadius(12)
                     
-                    // Dati Meteo Recenti (Open-Meteo)
+                    // Card 3: Analisi Meteo, Idratazione Micelio & Shock Termico
                     if let m = meteo, let prev = previsione {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Analisi Precipitazioni (15 gg)")
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Dati Meteo & Idratazione Suolo (Open-Meteo)")
                                 .font(.headline)
                             
-                            HStack {
-                                VStack(alignment: .leading) {
-                                    Text("Pioggia Caduta")
-                                        .font(.caption).foregroundColor(.secondary)
+                            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
+                                GridRow {
+                                    Text("Pioggia Caduta:").bold()
                                     Text("\(String(format: "%.1f", m.pioggiaCumulata15Giorni)) mm")
-                                        .font(.title2).bold()
-                                }
-                                Spacer()
-                                VStack(alignment: .leading) {
-                                    Text("Soglia Calcolata")
-                                        .font(.caption).foregroundColor(.secondary)
+                                    Text("Soglia Richiesta:").bold()
                                     Text("\(String(format: "%.1f", prev.sogliaRichiesta)) mm")
-                                        .font(.title2).bold()
+                                }
+                                GridRow {
+                                    Text("Umidità Suolo (3-9cm):").bold()
+                                    Text("\(String(format: "%.2f", m.umiditaSuoloMiceliare)) m³/m³")
+                                    Text("Temp. Terreno:").bold()
+                                    Text("\(String(format: "%.1f", m.temperaturaSuolo)) °C")
+                                }
+                                GridRow {
+                                    Text("Shock Termico DeltaT:").bold()
+                                    Text(m.deltaTSuolo >= 3.5 ? "+\(String(format: "%.1f", m.deltaTSuolo))°C (Bonus +20%)" : "Assente")
+                                        .font(.caption).bold()
+                                        .foregroundColor(m.deltaTSuolo >= 3.5 ? .blue : .secondary)
+                                    Text("Vento Max:").bold()
+                                    Text("\(String(format: "%.1f", m.velocitaVentoMax)) km/h")
                                 }
                             }
                         }
@@ -120,38 +129,39 @@ struct DettaglioPuntoView: View {
                             Text("Le tue Osservazioni sul Campo")
                                 .font(.headline)
                             Spacer()
-                            Button {
-                                mostrandoAggiungiObs = true
-                            } label: {
-                                Label("Aggiungi", systemImage: "plus")
-                                    .font(.caption)
+                            Button(action: { mostrandoAggiungiObs = true }) {
+                                Label("Aggiungi", systemImage: "plus.circle.fill")
+                                    .font(.subheadline)
                             }
                         }
                         
                         if punto.osservazioni.isEmpty {
-                            Text("Nessuna osservazione registrata in questo punto. Aggiungine una per calibrare l'algoritmo.")
+                            Text("Nessuna osservazione registrata in questo punto. Aggiungi la tua prima uscita per calibrare automaticamente la soglia!")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
+                                .padding(.vertical, 4)
                         } else {
                             ForEach(punto.osservazioni.sorted(by: { $0.data > $1.data })) { obs in
                                 HStack {
-                                    Image(systemName: obs.trovato ? "checkmark.circle.fill" : "xmark.circle")
+                                    Image(systemName: obs.trovato ? "checkmark.circle.fill" : "xmark.circle.fill")
                                         .foregroundColor(obs.trovato ? .green : .red)
+                                    
                                     VStack(alignment: .leading) {
-                                        Text(obs.data.formatted(date: .abbreviated, time: .omitted))
+                                        Text(obs.data.formatted(date: .abbreviated, time: .shortened))
                                             .font(.caption).bold()
                                         if obs.trovato {
-                                            Text("\(obs.specie) — \(String(format: "%.1f", obs.quantitaKg ?? 0.0)) kg")
-                                                .font(.caption2)
+                                            Text("Trovato: \(String(format: "%.1f", obs.quantitaKg)) kg (\(obs.specie))")
+                                                .font(.caption)
                                         } else {
-                                            Text("Uscita a vuoto")
-                                                .font(.caption2)
-                                                .foregroundColor(.secondary)
+                                            Text("Nessun fungo trovato")
+                                                .font(.caption).foregroundColor(.secondary)
                                         }
                                     }
                                     Spacer()
                                 }
-                                .padding(.vertical, 4)
+                                .padding(8)
+                                .background(Color(.tertiarySystemBackground))
+                                .cornerRadius(8)
                             }
                         }
                     }
@@ -159,13 +169,14 @@ struct DettaglioPuntoView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color(.secondarySystemBackground))
                     .cornerRadius(12)
+                    
                 }
                 .padding()
             }
             .navigationTitle(punto.nome)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button("Chiudi") { dismiss() }
                 }
             }
@@ -173,9 +184,9 @@ struct DettaglioPuntoView: View {
                 AggiungiOsservazioneView(punto: punto)
             }
             .task {
-                let fetchedMeteo = await MeteoService.shared.fetchMeteo(latitude: punto.latitude, longitude: punto.longitude)
-                self.meteo = fetchedMeteo
-                self.previsione = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: punto, meteo: fetchedMeteo)
+                let m = await MeteoService.shared.fetchMeteo(latitude: punto.latitude, longitude: punto.longitude)
+                self.meteo = m
+                self.previsione = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: punto, meteo: m)
             }
         }
     }
