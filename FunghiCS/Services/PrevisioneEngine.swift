@@ -182,14 +182,15 @@ struct PrevisioneEngine {
                         pixels[idx + 2] = 0
                         pixels[idx + 3] = 0
                     } else {
-                        var pioggiaLocale = 28.0
+                        var pioggiaLocale = 38.0
                         var tempBase = 16.5
-                        var giorniDaPioggia = 5
+                        var giorniDaPioggia = 4
                         
                         if !nodi.isEmpty {
                             var pesoTotale = 0.0
                             var pioggiaPesata = 0.0
                             var tempPesata = 0.0
+                            var giorniDaPioggiaPesati = 0.0
                             
                             for n in nodi {
                                 let d2 = (n.lat - lat)*(n.lat - lat) + (n.lon - lon)*(n.lon - lon)
@@ -197,11 +198,13 @@ struct PrevisioneEngine {
                                 pesoTotale += w
                                 pioggiaPesata += n.pioggia15gg * w
                                 tempPesata += n.tempMedia * w
+                                giorniDaPioggiaPesati += Double(n.giorniDaPioggia) * w
                             }
                             
                             if pesoTotale > 0 {
                                 pioggiaLocale = pioggiaPesata / pesoTotale
                                 tempBase = tempPesata / pesoTotale
+                                giorniDaPioggia = Int(round(giorniDaPioggiaPesati / pesoTotale))
                             }
                         }
                         
@@ -210,9 +213,9 @@ struct PrevisioneEngine {
                             pioggiaCumulata15Giorni: pioggiaLocale,
                             temperaturaMedia: tempQuota,
                             umiditaMedia: 65.0,
-                            umiditaSuoloMiceliare: 0.25,
+                            umiditaSuoloMiceliare: pioggiaLocale >= 50.0 ? 0.32 : (pioggiaLocale >= 30.0 ? 0.25 : 0.16),
                             temperaturaSuolo: tempQuota,
-                            deltaTSuolo: 0.0,
+                            deltaTSuolo: pioggiaLocale >= 45.0 ? 4.0 : 0.0,
                             velocitaVentoMax: 10.0,
                             evapotraspirazioneET0: 2.5,
                             giorniDaUltimaPioggiaSignificativa: giorniDaPioggia
