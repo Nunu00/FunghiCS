@@ -3,6 +3,10 @@ import MapKit
 import UIKit
 import CoreGraphics
 
+extension Notification.Name {
+    static let heatmapDataUpdated = Notification.Name("HeatmapDataUpdatedNotification")
+}
+
 final class CosenzaHeatmapOverlay: NSObject, MKOverlay {
     let boundingMapRect: MKMapRect
     let coordinate: CLLocationCoordinate2D
@@ -34,10 +38,31 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
     var filtraSoloZoneIdonee: Bool = true
     
     private var cachedImage: CGImage? = nil
-    private var lastStateHash: Int = 0
+    private var lastNodeCount: Int = -1
+    private var notificationObserver: NSObjectProtocol? = nil
+    
+    override init(overlay: MKOverlay) {
+        super.init(overlay: overlay)
+        
+        // Ascolta aggiornamenti meteo per invalidare la cache e ridisegnare la mappa
+        notificationObserver = NotificationCenter.default.addObserver(
+            forName: .heatmapDataUpdated,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.invalidateCache()
+        }
+    }
+    
+    deinit {
+        if let obs = notificationObserver {
+            NotificationCenter.default.removeObserver(obs)
+        }
+    }
     
     func invalidateCache() {
         cachedImage = nil
+        lastNodeCount = -1
         setNeedsDisplay()
     }
     
@@ -47,10 +72,10 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
         let overlayRect = self.overlay.boundingMapRect
         if !mapRect.intersects(overlayRect) { return }
         
-        let stateHash = (mostraMappaCalore ? 1 : 0) ^ (filtraSoloZoneIdonee ? 2 : 0)
-        if cachedImage == nil || lastStateHash != stateHash {
+        let currentNodesCount = MeteoService.nodiGrigliaSpaziale.count
+        if cachedImage == nil || lastNodeCount != currentNodesCount {
             cachedImage = generaBitmapCaloreContinuo()
-            lastStateHash = stateHash
+            lastNodeCount = currentNodesCount
         }
         
         guard let cgImage = cachedImage else { return }
@@ -62,7 +87,7 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
         context.setAllowsAntialiasing(true)
         context.interpolationQuality = .high
         
-        // CORREZIONE ASSE Y: Ribalta l'immagine in verticale per far coincidere il Nord in alto ed il Sud in basso
+        // Ribalta l'asse Y per far coincidere il Nord in alto ed il Sud in basso
         context.translateBy(x: drawRect.origin.x, y: drawRect.origin.y + drawRect.size.height)
         context.scaleBy(x: 1.0, y: -1.0)
         let localDrawRect = CGRect(x: 0, y: 0, width: drawRect.size.width, height: drawRect.size.height)
@@ -71,7 +96,7 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
         context.restoreGState()
     }
     
-    /// Genera la mappa di calore a 450x450 pixel usando la PROIEZIONE DI MERCATORE UFFICIALE MAPKIT per combaciare al 100% con la mappa
+    /// Genera la mappa di calore a 450x450 pixel usando CGContext in memoria sicura
     private func generaBitmapCaloreContinuo() -> CGImage? {
         let width = 450
         let height = 450
@@ -80,7 +105,6 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
         let overlayRect = self.overlay.boundingMapRect
         
         for y in 0..<height {
-            // Conversione coordinata Y tramite Proiezione di Mercatore MapKit
             let mapY = overlayRect.origin.y + (Double(y) / Double(height)) * overlayRect.size.height
             
             for x in 0..<width {
@@ -95,30 +119,21 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
                 let quota = terrain.quota
                 let isIdonea = DEMService.shared.isQuotaIdonea(quota: quota)
                 let eMare = DEMService.shared.isAreaMareOCosta(lat: lat, lon: lon, quota: quota)
+                let k_veg = terrain.kVeg
                 
                 let idx = (y * width + x) * 4
                 
-                if eMare || quota == 0.0 {
-                    // Mare o Costa: 100% Trasparente
+                if eMare || quota == 0.0 || k_veg <= 0.0 {
+                    // Mare, Costa o Superficie Non Boschiva (Copernicus K_veg = 0.0): 100% Trasparente
                     pixels[idx]     = 0
                     pixels[idx + 1] = 0
                     pixels[idx + 2] = 0
                     pixels[idx + 3] = 0
                 } else if !isIdonea {
-                    // Bassa quota (<800m)
-                    if filtraSoloZoneIdonee {
-                        // Filtro >800m ATTIVO -> 100% Trasparente!
-                        pixels[idx]     = 0
-                        pixels[idx + 1] = 0
-                        pixels[idx + 2] = 0
-                        pixels[idx + 3] = 0
-                    } else {
-                        // Filtro >800m DISATTIVATO -> Grigio/Azzurro trasparente per evidenziare le valli
-                        pixels[idx]     = 160 // R
-                        pixels[idx + 1] = 180 // G
-                        pixels[idx + 2] = 220 // B
-                        pixels[idx + 3] = 75  // Alpha
-                    }
+                    pixels[idx]     = 0
+                    pixels[idx + 1] = 0
+                    pixels[idx + 2] = 0
+                    pixels[idx + 3] = 0
                 } else {
                     // Zona Montana/Boschiva (>=800m s.l.m.) -> Calcolo Fruttificazione Reale da Griglia Spaziale
                     let nodi = MeteoService.nodiGrigliaSpaziale
@@ -131,10 +146,6 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
                         var pesoTotale = 0.0
                         var pioggiaPesata = 0.0
                         var tempPesata = 0.0
-                        var smPesata = 0.0
-                        var stPesata = 0.0
-                        var windPesata = 0.0
-                        var deltaTPesata = 0.0
                         
                         for n in nodi {
                             let d2 = (n.lat - lat)*(n.lat - lat) + (n.lon - lon)*(n.lon - lon)
@@ -204,61 +215,21 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
         }
         
         let colorSpace = CGColorSpaceCreateDeviceRGB()
-        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)
+        let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
         
-        guard let cfData = CFDataCreate(kCFAllocatorDefault, &pixels, pixels.count),
-              let dataProvider = CGDataProvider(data: cfData) else {
-            return nil
-        }
-        
-        return CGImage(
+        // Creazione di CGContext nativo thread-safe e memory-safe per evitare crash di deallocazione al ritorno alla home
+        guard let bitmapContext = CGContext(
+            data: &pixels,
             width: width,
             height: height,
             bitsPerComponent: 8,
-            bitsPerPixel: 32,
             bytesPerRow: width * 4,
             space: colorSpace,
-            bitmapInfo: bitmapInfo,
-            provider: dataProvider,
-            decode: nil,
-            shouldInterpolate: true,
-            intent: .defaultIntent
-        )
-    }
-    
-    private func sfocaBitmap(pixels: [UInt8], width: Int, height: Int) -> [UInt8] {
-        var output = pixels
-        
-        for y in 1..<(height - 1) {
-            for x in 1..<(width - 1) {
-                let idx = (y * width + x) * 4
-                if pixels[idx + 3] == 0 { continue }
-                
-                var rSum = 0, gSum = 0, bSum = 0, aSum = 0
-                var count = 0
-                
-                for dy in -1...1 {
-                    for dx in -1...1 {
-                        let nIdx = ((y + dy) * width + (x + dx)) * 4
-                        let alpha = Int(pixels[nIdx + 3])
-                        if alpha > 0 {
-                            rSum += Int(pixels[nIdx])
-                            gSum += Int(pixels[nIdx + 1])
-                            bSum += Int(pixels[nIdx + 2])
-                            aSum += alpha
-                            count += 1
-                        }
-                    }
-                }
-                
-                if count > 0 {
-                    output[idx]     = UInt8(rSum / count)
-                    output[idx + 1] = UInt8(gSum / count)
-                    output[idx + 2] = UInt8(bSum / count)
-                    output[idx + 3] = UInt8(aSum / count)
-                }
-            }
+            bitmapInfo: bitmapInfo
+        ) else {
+            return nil
         }
-        return output
+        
+        return bitmapContext.makeImage()
     }
 }

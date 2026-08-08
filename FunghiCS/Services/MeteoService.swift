@@ -80,6 +80,10 @@ actor MeteoService {
             
             MeteoService.nodiGrigliaSpaziale = nodi
             print("✅ Scaricati con successo \(nodi.count) nodi Radar/Satellite CONCENTRATI IN MONTAGNA (>=800m)!")
+            
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .heatmapDataUpdated, object: nil)
+            }
             return nodi
             
         } catch {
