@@ -7,13 +7,13 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-from PIL import Image
+from scipy.spatial import KDTree  # <--- Aggiunto per ricerca spaziale ultra-veloce
 
 output_dir = r"C:\Users\Vincenzo\.gemini\antigravity\brain\9edb03c6-5023-4dbf-8bf3-d755e66455fe"
 os.makedirs(output_dir, exist_ok=True)
 
 # Carica DEM JSON ampliato
-with open("FunghiCS/Resources/cosenza_dem.json", "r", encoding="utf-8") as f:
+with open("C:\Antigravity\previsioni_funghi\FunghiCS\Resources\cosenza_dem.json", "r", encoding="utf-8") as f:
     dem_data = json.load(f)
 
 min_lat = dem_data["minLat"]
@@ -29,44 +29,53 @@ elevation_grid = np.zeros((height, width))
 mask_grid = np.zeros((height, width))
 prob_grid = np.zeros((height, width))
 
-for y in range(height):
-    lat = max_lat - (y / height) * (max_lat - min_lat)
-    for x in range(width):
-        lon = min_lon + (x / width) * (max_lon - min_lon)
+# -------------------------------------------------------------
+# OTTIMIZZAZIONE: Costruzione KDTree e Griglia Vettoriale (C code / < 0.1s)
+# -------------------------------------------------------------
+coords = np.array([[p["lat"], p["lon"]] for p in points])
+tree = KDTree(coords)
+
+lats = np.linspace(max_lat, min_lat, height)
+lons = np.linspace(min_lon, max_lon, width)
+grid_lon, grid_lat = np.meshgrid(lons, lats)
+grid_points = np.column_stack([grid_lat.ravel(), grid_lon.ravel()])
+
+# Trova il punto più vicino per tutti i 90.000 pixel simultaneamente
+distances_sq, indices = tree.query(grid_points)
+distances_sq = distances_sq ** 2  # Distanza quadratica come nel codice originale
+
+for i in range(height * width):
+    y = i // width
+    x = i % width
+    
+    min_d = distances_sq[i]
+    best_pt = points[indices[i]]
+    
+    alt = best_pt["elevation"] if (best_pt and min_d < 0.008) else 0.0
+    pendenza = best_pt["slope"] if best_pt else 0.0
+    esposizione = best_pt["aspect"] if best_pt else "N"
+    
+    elevation_grid[y, x] = alt
+    
+    # Filtro mare/quota reale: idoneo se alt >= 800m SENZA tagli geografici artificiali!
+    is_suitable = (alt >= 800.0 and alt <= 2500.0)
+    
+    if is_suitable:
+        mask_grid[y, x] = 1.0
         
-        min_d = 1e9
-        best_pt = None
-        for p in points:
-            d = (p["lat"] - lat)**2 + (p["lon"] - lon)**2
-            if d < min_d:
-                min_d = d
-                best_pt = p
-                
-        alt = best_pt["elevation"] if (best_pt and min_d < 0.008) else 0.0
-        pendenza = best_pt["slope"] if best_pt else 0.0
-        esposizione = best_pt["aspect"] if best_pt else "N"
+        pioggia = min(95.0, 50.0 + (alt / 30.0))
+        temp = max(10.0, 24.0 - (alt / 180.0))
         
-        elevation_grid[y, x] = alt
+        soglia = 60.0
+        if alt > 1000.0: soglia *= 0.90
+        if "S" in esposizione.upper(): soglia *= 1.15
+        if pendenza > 20.0: soglia *= 1.15
         
-        # Filtro mare/quota reale: idoneo se alt >= 800m SENZA tagli geografici artificiali!
-        is_suitable = (alt >= 800.0 and alt <= 2500.0)
-        
-        if is_suitable:
-            mask_grid[y, x] = 1.0
-            
-            pioggia = min(95.0, 50.0 + (alt / 30.0))
-            temp = max(10.0, 24.0 - (alt / 180.0))
-            
-            soglia = 60.0
-            if alt > 1000.0: soglia *= 0.90
-            if "S" in esposizione.upper(): soglia *= 1.15
-            if pendenza > 20.0: soglia *= 1.15
-            
-            prob = min(100.0, (pioggia / max(1.0, soglia)) * 80.0)
-            prob_grid[y, x] = prob
-        else:
-            mask_grid[y, x] = 0.0
-            prob_grid[y, x] = 0.0
+        prob = min(100.0, (pioggia / max(1.0, soglia)) * 80.0)
+        prob_grid[y, x] = prob
+    else:
+        mask_grid[y, x] = 0.0
+        prob_grid[y, x] = 0.0
 
 # -------------------------------------------------------------
 # STEP 1: Mappa di Elevazione Reale INGV TINITALY 10m

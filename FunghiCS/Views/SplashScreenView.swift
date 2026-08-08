@@ -1,11 +1,11 @@
 import SwiftUI
+import SwiftData
 
 struct SplashScreenView: View {
     @Binding var isAppReady: Bool
     
     @State private var pulseScale: CGFloat = 1.0
-    @State private var opacity: Double = 0.3
-    @State private var messaggioStato = "Inizializzazione terreno TINITALY..."
+    @State private var messaggioStato = "Caricamento terreno INGV 10m..."
     @State private var progresso: Double = 0.15
     
     var body: some View {
@@ -39,7 +39,7 @@ struct SplashScreenView: View {
                         .font(.system(size: 38, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                     
-                    Text("Provincia di Cosenza — Sila & Pollino")
+                    Text("Provincia di Cosenza & Basilicata")
                         .font(.subheadline)
                         .foregroundColor(.white.opacity(0.8))
                 }
@@ -63,27 +63,29 @@ struct SplashScreenView: View {
             withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
                 pulseScale = 1.15
             }
-            avviaSimulazioneCaricamento()
+            inizializzaAppEInvia()
         }
     }
     
-    private func avviaSimulazioneCaricamento() {
+    private func inizializzaAppEInvia() {
         Task {
-            try? await Task.sleep(nanoseconds: 400_000_000)
+            // Step 1: Forzare caricamento DEM INGV in memoria (109.329 punti)
             await MainActor.run {
-                messaggioStato = "Analisi altimetrica e boschiva (>400m)..."
-                progresso = 0.45
+                messaggioStato = "Inizializzazione 109.329 punti INGV 10m..."
+                progresso = 0.35
             }
+            _ = DEMService.shared
             
-            try? await Task.sleep(nanoseconds: 500_000_000)
+            // Step 2: Download bollettino meteo regionale live
             await MainActor.run {
-                messaggioStato = "Download bollettini Open-Meteo..."
-                progresso = 0.80
+                messaggioStato = "Scaricamento bollettini Open-Meteo live..."
+                progresso = 0.70
             }
+            _ = await MeteoService.shared.caricaMeteoRegionaleIniziale()
             
-            try? await Task.sleep(nanoseconds: 500_000_000)
+            // Step 3: Calcolo mappe di calore e previsioni
             await MainActor.run {
-                messaggioStato = "Generazione mappa di calore..."
+                messaggioStato = "Calcolo previsioni e preparazione mappa..."
                 progresso = 1.0
             }
             

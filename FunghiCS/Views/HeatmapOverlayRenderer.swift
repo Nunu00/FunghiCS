@@ -121,10 +121,15 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
                     }
                 } else {
                     // Zona Montana/Boschiva (>=800m s.l.m.) -> Calcolo Fruttificazione Reale
-                    let pioggiaQuota = min(95.0, 50.0 + (quota / 30.0))
-                    let tempQuota = max(10.0, 24.0 - (quota / 180.0)) // Gradiente termico bilanciato per vette montane
+                    let pioggiaBase = 28.0
+                    let pioggiaQuota = min(85.0, pioggiaBase + max(0.0, (quota - 800.0) / 45.0))
+                    let tempQuota = max(8.0, 22.0 - max(0.0, (quota - 800.0) / 160.0))
                     
-                    let meteoLocale = DatiMeteo(pioggiaCumulata15Giorni: pioggiaQuota, temperaturaMedia: tempQuota, giorniDaUltimaPioggiaSignificativa: 4)
+                    let meteoLocale = DatiMeteo(
+                        pioggiaCumulata15Giorni: pioggiaQuota,
+                        temperaturaMedia: tempQuota,
+                        giorniDaUltimaPioggiaSignificativa: 5
+                    )
                     
                     let pTemp = PuntoInteresse(
                         nome: "Pixel",

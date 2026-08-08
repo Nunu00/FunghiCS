@@ -124,23 +124,23 @@ struct MappaView: View {
         }
     }
     
-    /// Calcola la previsione immediata per tutti i punti affinché siano colorati già al primo frame
+    /// Calcola la previsione live per tutti i punti affinché i segnalini mostrino la percentuale reale fin dal primo istante
     private func calcolaPrevisioneInizialePunti() {
-        var mappaIniziale: [UUID: RisultatoPrevisione] = [:]
-        for punto in punti {
-            let meteoStimato = DatiMeteo(pioggiaCumulata15Giorni: 58.0, temperaturaMedia: 16.5, giorniDaUltimaPioggiaSignificativa: 4)
-            let res = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: punto, meteo: meteoStimato)
-            mappaIniziale[punto.id] = res
+        Task {
+            await calcolaMeteoPuntiLive()
         }
-        self.risultatiMeteoPunti = mappaIniziale
     }
     
     /// Scarica il meteo live via REST API ed aggiorna i punti in tempo reale
     private func calcolaMeteoPuntiLive() async {
+        var mappaLive: [UUID: RisultatoPrevisione] = [:]
         for punto in punti {
             let meteo = await MeteoService.shared.fetchMeteo(latitude: punto.latitude, longitude: punto.longitude)
             let res = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: punto, meteo: meteo)
-            risultatiMeteoPunti[punto.id] = res
+            mappaLive[punto.id] = res
+        }
+        await MainActor.run {
+            self.risultatiMeteoPunti = mappaLive
         }
     }
     
@@ -265,13 +265,14 @@ struct MapViewRepresentable: UIViewRepresentable {
                 view?.annotation = annotation
             }
             
-            let res = parent.risultatiMeteoPunti[puntoAnn.punto.id]
-            let prob = res?.probabilitaPercentuale ?? 60
-            let stato = res?.stato ?? .buttataProbabile
+            if let res = parent.risultatiMeteoPunti[puntoAnn.punto.id] {
+                view?.glyphText = "\(res.probabilitaPercentuale)"
+                view?.markerTintColor = UIColor(res.stato.colore)
+            } else {
+                view?.glyphText = "..."
+                view?.markerTintColor = .systemGray
+            }
             
-            // Imposta il numero percentuale a 2 cifre (es. 60, 75, 25) ed il colore dello stato
-            view?.glyphText = "\(prob)"
-            view?.markerTintColor = UIColor(stato.colore)
             view?.titleVisibility = .visible
             
             return view
