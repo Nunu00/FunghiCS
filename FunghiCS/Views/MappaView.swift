@@ -257,7 +257,10 @@ struct MappaView: View {
                 csvLines.append(line)
             }
         } else {
-            for n in nodi {
+            // Ordina i nodi per pioggia cumulata decrescente in modo che le zone con piu pioggia compaiano subito in cima
+            let nodiOrdinati = nodi.sorted { $0.pioggia15gg > $1.pioggia15gg }
+            
+            for n in nodiOrdinati {
                 let lat = n.lat
                 let lon = n.lon
                 let terrain = DEMService.shared.getTerrainData(latitude: lat, longitude: lon)
