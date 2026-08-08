@@ -6,6 +6,9 @@ struct DEMGridPoint: Codable {
     let elevation: Double
     let slope: Double
     let aspect: String
+    let clcClass: String?
+    let kVeg: Double?
+    let soilType: String?
 }
 
 struct DEMDataFile: Codable {
@@ -38,7 +41,7 @@ final class DEMService {
             let data = try Data(contentsOf: validUrl)
             let decoder = JSONDecoder()
             self.demData = try decoder.decode(DEMDataFile.self, from: data)
-            print("✅ DEM TINITALY caricato con successo: \(self.demData?.points.count ?? 0) punti orografici reali.")
+            print("✅ DEM TINITALY con Copernicus CLC 2018 e Suoli caricato con successo: \(self.demData?.points.count ?? 0) punti orografici reali.")
         } catch {
             print("❌ Errore decodifica DEM JSON: \(error)")
         }
@@ -54,10 +57,19 @@ final class DEMService {
         return quota <= 20.0
     }
     
-    /// Restituisce la quota e i parametri orografici reali per qualsiasi coordinate lat/lon
-    func getTerrainData(latitude: Double, longitude: Double) -> (quota: Double, pendenza: Double, esposizione: String) {
+    /// Restituisce la quota e i parametri orografici/satellitari/suolo reali per qualsiasi coordinate lat/lon
+    func getTerrainData(latitude: Double, longitude: Double) -> (
+        quota: Double,
+        pendenza: Double,
+        esposizione: String,
+        kVeg: Double,
+        soilType: String,
+        clcClass: String,
+        nomeVegetazione: String,
+        nomeSuolo: String
+    ) {
         guard let data = demData, !data.points.isEmpty else {
-            return (quota: 0.0, pendenza: 0.0, esposizione: "N")
+            return (0.0, 0.0, "N", 0.0, "farmland_urban", "CLC_211", "Zona non boschiva", "Terreno Agricolo/Urbano")
         }
         
         var minDistSq = Double.greatestFiniteMagnitude
@@ -74,15 +86,48 @@ final class DEMService {
         }
         
         if let punto = migliorPunto, minDistSq < 0.008 {
-            return (quota: punto.elevation, pendenza: punto.slope, esposizione: punto.aspect)
+            let clc = punto.clcClass ?? "CLC_311"
+            let kv = punto.kVeg ?? (punto.elevation >= 800.0 ? 1.0 : 0.0)
+            let soil = punto.soilType ?? "sandy_granite"
+            
+            let nomeVeg: String
+            switch clc {
+            case "CLC_312_Coniferous_Pine_Forest": nomeVeg = "Pineta di Pino Laricio (Sila)"
+            case "CLC_311_Broadleaved_Forest": nomeVeg = "Bosco di Latifoglie (Castagno/Quercia)"
+            case "CLC_311_Broadleaved_Beech_Forest": nomeVeg = "Fagjeta Alta Quota"
+            case "CLC_313_Mixed_Forest": nomeVeg = "Bosco Misto (Faggio/Abete/Pino)"
+            case "CLC_324_Transitional_Woodland": nomeVeg = "Macchia Pedemontana / Arbusteto"
+            case "CLC_512_Water_Bodies": nomeVeg = "Superficie Lacustre / Lago"
+            case "CLC_332_Bare_Rock_Screes": nomeVeg = "Roccia Nuda / Ghiaione Sommitale"
+            default: nomeVeg = kv > 0 ? "Bosco Montano Naturale" : "Zona Non Boschiva"
+            }
+            
+            let nomeSuolo: String
+            switch soil {
+            case "sandy_granite": nomeSuolo = "Granitico-Sabbioso (Drenaggio Rapido)"
+            case "clay_limestone": nomeSuolo = "Calcareo-Argilloso (Ritenzione Prolungata)"
+            case "loam_metamorphic": nomeSuolo = "Limoso-Metamorfico (Drenaggio Bilanciato)"
+            default: nomeSuolo = "Terreno Standard"
+            }
+            
+            return (
+                quota: punto.elevation,
+                pendenza: punto.slope,
+                esposizione: punto.aspect,
+                kVeg: kv,
+                soilType: soil,
+                clcClass: clc,
+                nomeVegetazione: nomeVeg,
+                nomeSuolo: nomeSuolo
+            )
         } else {
-            return (quota: 0.0, pendenza: 0.0, esposizione: "N")
+            return (0.0, 0.0, "N", 0.0, "farmland_urban", "CLC_211", "Zona non boschiva", "Terreno Agricolo/Urbano")
         }
     }
     
-    /// Restituisce tutti i punti altimetrici INGV 10m presenti nelle zone montane >=800m s.l.m.
+    /// Restituisce tutti i punti altimetrici INGV 10m presenti nelle zone montane boschive idonee
     func getPuntiMontaniIdonei() -> [DEMGridPoint] {
         guard let data = demData else { return [] }
-        return data.points.filter { $0.elevation >= 800.0 }
+        return data.points.filter { ($0.kVeg ?? 1.0) > 0.0 && $0.elevation >= 600.0 }
     }
 }

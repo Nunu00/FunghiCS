@@ -47,12 +47,14 @@ struct DettaglioPuntoView: View {
                             .padding()
                     }
                     
-                    // Dati Altimetrici & Morfologia (DEM TINITALY)
+                    // Dati Altimetrici, Satellitari Copernicus & Morfologia Terreno
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Dati Terreno & Altimetria (TINITALY)")
+                        Text("Terreno, Altimetria & Satellitare (Copernicus)")
                             .font(.headline)
                         
-                        Grid(alignment: .leading, horizontalSpacing: 20, verticalSpacing: 8) {
+                        let tInfo = DEMService.shared.getTerrainData(latitude: punto.latitude, longitude: punto.longitude)
+                        
+                        Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
                             GridRow {
                                 Text("Quota:").bold()
                                 Text("\(Int(punto.quota)) m s.l.m.")
@@ -62,8 +64,20 @@ struct DettaglioPuntoView: View {
                             GridRow {
                                 Text("Esposizione:").bold()
                                 Text(punto.esposizione)
-                                Text("Calibrazione:").bold()
-                                Text("\(String(format: "%.2f", punto.moltiplicatoreSoglia))x")
+                                Text("Idoneità K_veg:").bold()
+                                Text("\(String(format: "%.2f", tInfo.kVeg))x")
+                            }
+                            GridRow {
+                                Text("Bosco Satellite:").bold()
+                                Text(tInfo.nomeVegetazione)
+                                    .font(.caption).bold()
+                                    .foregroundColor(.green)
+                            }
+                            GridRow {
+                                Text("Trama Suolo:").bold()
+                                Text(tInfo.nomeSuolo)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
                             }
                         }
                     }
