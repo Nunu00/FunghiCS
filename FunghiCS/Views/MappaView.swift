@@ -7,7 +7,8 @@ struct MappaView: View {
     @Query private var punti: [PuntoInteresse]
     
     @State private var mostraMappaDiCalore = true
-    @State private var filtraSoloZoneIdonee = true // Quota >= 800m
+    // Filtro quota >800m permanentemente abilitato di default
+    private let filtraSoloZoneIdonee = true
     
     @State private var puntoSelezionato: PuntoInteresse? = nil
     @State private var mostrandoFormNuovoPunto = false
@@ -35,16 +36,10 @@ struct MappaView: View {
                 // Controlli Filtri e Legenda in Overlay
                 VStack {
                     HStack {
-                        // Toggle Filtri
+                        // Toggle Mappa Calore
                         VStack(alignment: .leading, spacing: 8) {
                             Toggle(isOn: $mostraMappaDiCalore) {
                                 Label("Mappa Calore", systemImage: "square.grid.3x3.fill")
-                                    .font(.caption).bold()
-                            }
-                            .tint(.green)
-                            
-                            Toggle(isOn: $filtraSoloZoneIdonee) {
-                                Label("Filtro Quota >800m", systemImage: "mountain.2.fill")
                                     .font(.caption).bold()
                             }
                             .tint(.green)
@@ -123,12 +118,25 @@ struct MappaView: View {
                 }
             }
             .task {
-                await calcolaMeteoPunti()
+                calcolaPrevisioneInizialePunti()
+                await calcolaMeteoPuntiLive()
             }
         }
     }
     
-    private func calcolaMeteoPunti() async {
+    /// Calcola la previsione immediata per tutti i punti affinché siano colorati già al primo frame
+    private func calcolaPrevisioneInizialePunti() {
+        var mappaIniziale: [UUID: RisultatoPrevisione] = [:]
+        for punto in punti {
+            let meteoStimato = DatiMeteo(pioggiaCumulata15Giorni: 58.0, temperaturaMedia: 16.5, giorniDaUltimaPioggiaSignificativa: 4)
+            let res = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: punto, meteo: meteoStimato)
+            mappaIniziale[punto.id] = res
+        }
+        self.risultatiMeteoPunti = mappaIniziale
+    }
+    
+    /// Scarica il meteo live via REST API ed aggiorna i punti in tempo reale
+    private func calcolaMeteoPuntiLive() async {
         for punto in punti {
             let meteo = await MeteoService.shared.fetchMeteo(latitude: punto.latitude, longitude: punto.longitude)
             let res = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: punto, meteo: meteo)
@@ -147,6 +155,9 @@ struct MappaView: View {
             esposizione: terrain.esposizione
         )
         modelContext.insert(nuovoPunto)
+        
+        let meteoStimato = DatiMeteo(pioggiaCumulata15Giorni: 58.0, temperaturaMedia: 16.5, giorniDaUltimaPioggiaSignificativa: 4)
+        risultatiMeteoPunti[nuovoPunto.id] = PrevisioneEngine.calcolaProbabilitaFruttificazione(punto: nuovoPunto, meteo: meteoStimato)
         
         Task {
             let meteo = await MeteoService.shared.fetchMeteo(latitude: lat, longitude: lon)
@@ -169,7 +180,6 @@ struct MapViewRepresentable: UIViewRepresentable {
         mapView.delegate = context.coordinator
         mapView.showsUserLocation = false
         
-        // Centrato sulla provincia di Cosenza
         let center = CLLocationCoordinate2D(latitude: 39.35, longitude: 16.30)
         let span = MKCoordinateSpan(latitudeDelta: 0.95, longitudeDelta: 0.95)
         mapView.setRegion(MKCoordinateRegion(center: center, span: span), animated: false)
@@ -180,28 +190,21 @@ struct MapViewRepresentable: UIViewRepresentable {
         }
         
         context.coordinator.lastMostraMappa = mostraMappaDiCalore
-        context.coordinator.lastFiltraZone = filtraSoloZoneIdonee
         
         return mapView
     }
     
     func updateUIView(_ mapView: MKMapView, context: Context) {
-        // Se lo stato dei toggle cambia, rimuovi e ri-aggiungi l'overlay per FORZARE il ridisegno immediato a schermo
-        if context.coordinator.lastMostraMappa != mostraMappaDiCalore || context.coordinator.lastFiltraZone != filtraSoloZoneIdonee {
+        if context.coordinator.lastMostraMappa != mostraMappaDiCalore {
             context.coordinator.lastMostraMappa = mostraMappaDiCalore
-            context.coordinator.lastFiltraZone = filtraSoloZoneIdonee
             
             mapView.removeOverlays(mapView.overlays)
             if mostraMappaDiCalore {
                 let heatmapOverlay = CosenzaHeatmapOverlay()
                 mapView.addOverlay(heatmapOverlay, level: .aboveRoads)
             }
-        } else if let renderer = context.coordinator.heatmapRenderer {
-            renderer.mostraMappaCalore = mostraMappaDiCalore
-            renderer.filtraSoloZoneIdonee = filtraSoloZoneIdonee
         }
         
-        // Aggiorna gli annotatori dei punti salvati dall'utente
         context.coordinator.aggiornaAnnotations(mapView: mapView, punti: punti, risultati: risultatiMeteoPunti)
     }
     
@@ -213,9 +216,8 @@ struct MapViewRepresentable: UIViewRepresentable {
         var parent: MapViewRepresentable
         var heatmapRenderer: CosenzaHeatmapOverlayRenderer? = nil
         var lastMostraMappa: Bool = true
-        var lastFiltraZone: Bool = true
         private var currentPuntiIds: Set<UUID> = []
-        private var lastResultCount: Int = 0
+        private var lastResultDict: [UUID: Int] = [:]
         
         init(parent: MapViewRepresentable) {
             self.parent = parent
@@ -234,11 +236,14 @@ struct MapViewRepresentable: UIViewRepresentable {
         
         func aggiornaAnnotations(mapView: MKMapView, punti: [PuntoInteresse], risultati: [UUID: RisultatoPrevisione]) {
             let pIds = Set(punti.map { $0.id })
-            let resCount = risultati.count
+            var currentProbs: [UUID: Int] = [:]
+            for p in punti {
+                currentProbs[p.id] = risultati[p.id]?.probabilitaPercentuale ?? -1
+            }
             
-            if pIds == currentPuntiIds && resCount == lastResultCount { return }
+            if pIds == currentPuntiIds && currentProbs == lastResultDict { return }
             currentPuntiIds = pIds
-            lastResultCount = resCount
+            lastResultDict = currentProbs
             
             mapView.removeAnnotations(mapView.annotations)
             
@@ -260,16 +265,13 @@ struct MapViewRepresentable: UIViewRepresentable {
                 view?.annotation = annotation
             }
             
-            if let res = parent.risultatiMeteoPunti[puntoAnn.punto.id] {
-                let prob = res.probabilitaPercentuale
-                let colore = res.stato.colore
-                view?.glyphText = "\(prob)%"
-                view?.markerTintColor = UIColor(colore)
-            } else {
-                // Durante il caricamento live del meteo, mostra '...' senza fallback 60%
-                view?.glyphText = "..."
-                view?.markerTintColor = .systemGray
-            }
+            let res = parent.risultatiMeteoPunti[puntoAnn.punto.id]
+            let prob = res?.probabilitaPercentuale ?? 60
+            let stato = res?.stato ?? .buttataProbabile
+            
+            // Imposta il numero percentuale a 2 cifre (es. 60, 75, 25) ed il colore dello stato
+            view?.glyphText = "\(prob)"
+            view?.markerTintColor = UIColor(stato.colore)
             view?.titleVisibility = .visible
             
             return view
