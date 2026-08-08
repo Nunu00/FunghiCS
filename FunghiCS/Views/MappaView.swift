@@ -240,7 +240,7 @@ struct MappaView: View {
         let maxLon: Double = 17.25
         
         let nodi = MeteoService.nodiGrigliaSpaziale
-        let step = 10
+        let step = 4
         
         for y in stride(from: 0, to: height, by: step) {
             let lat = maxLat - (Double(y) / Double(height)) * (maxLat - minLat)
