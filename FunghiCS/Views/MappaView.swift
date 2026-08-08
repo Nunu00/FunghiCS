@@ -214,10 +214,23 @@ struct MappaView: View {
         }
     }
     
-    /// Genera la matrice CSV esatta dei pixel della Mappa di Calore (30x30 campionati)
+    /// Genera la matrice CSV esatta dei pixel della Mappa di Calore (punti montani prioritari in cima)
     private func generaCSVMatricePixelBitmap() {
-        var csvLines: [String] = []
-        csvLines.append("GridY,GridX,Lat,Lon,Quota,PioggiaLocale,GiorniSenzaPioggia,Probabilita,StatoColore,HexColor")
+        struct PixelCSV {
+            let y: Int
+            let x: Int
+            let lat: Double
+            let lon: Double
+            let quota: Double
+            let pioggiaLocale: Double
+            let giorniDaPioggia: Int
+            let prob: Int
+            let statoColore: String
+            let hexColor: String
+            let isMontano: Bool
+        }
+        
+        var pixelList: [PixelCSV] = []
         
         let width = 300
         let height = 300
@@ -227,8 +240,6 @@ struct MappaView: View {
         let maxLon: Double = 17.25
         
         let nodi = MeteoService.nodiGrigliaSpaziale
-        
-        // Campionamento 30x30 grid (passo 10 pixel) per catturare tutta la mappa a livello pixel
         let step = 10
         
         for y in stride(from: 0, to: height, by: step) {
@@ -243,8 +254,8 @@ struct MappaView: View {
                 let eMare = DEMService.shared.isAreaMareOCosta(lat: lat, lon: lon, quota: quota)
                 
                 if eMare || quota == 0.0 || !isIdonea {
-                    let line = String(format: "%d,%d,%.4f,%.4f,%.1f,0.0,0,0,Trasparente,#00000000", y, x, lat, lon, quota)
-                    csvLines.append(line)
+                    let px = PixelCSV(y: y, x: x, lat: lat, lon: lon, quota: quota, pioggiaLocale: 0.0, giorniDaPioggia: 0, prob: 0, statoColore: "Trasparente", hexColor: "#00000000", isMontano: false)
+                    pixelList.append(px)
                 } else {
                     var pioggiaLocale = 38.0
                     var tempBase = 16.5
@@ -313,11 +324,27 @@ struct MappaView: View {
                         hexColor = "#9CA3AF8C"
                     }
                     
-                    let line = String(format: "%d,%d,%.4f,%.4f,%.1f,%.1f,%d,%d,%@,%@",
-                                      y, x, lat, lon, quota, pioggiaLocale, giorniDaPioggia, prob, statoColore, hexColor)
-                    csvLines.append(line)
+                    let px = PixelCSV(y: y, x: x, lat: lat, lon: lon, quota: quota, pioggiaLocale: pioggiaLocale, giorniDaPioggia: giorniDaPioggia, prob: prob, statoColore: statoColore, hexColor: hexColor, isMontano: true)
+                    pixelList.append(px)
                 }
             }
+        }
+        
+        // Ordiniamo: Prima i punti montani (Quota >= 800m) ordinati per probabilità decrescente, poi i punti trasparenti
+        let pixelOrdinati = pixelList.sorted { (p1, p2) -> Bool in
+            if p1.isMontano != p2.isMontano {
+                return p1.isMontano && !p2.isMontano
+            }
+            return p1.prob > p2.prob
+        }
+        
+        var csvLines: [String] = []
+        csvLines.append("GridY,GridX,Lat,Lon,Quota,PioggiaLocale,GiorniSenzaPioggia,Probabilita,StatoColore,HexColor")
+        
+        for p in pixelOrdinati {
+            let line = String(format: "%d,%d,%.4f,%.4f,%.1f,%.1f,%d,%d,%@,%@",
+                              p.y, p.x, p.lat, p.lon, p.quota, p.pioggiaLocale, p.giorniDaPioggia, p.prob, p.statoColore, p.hexColor)
+            csvLines.append(line)
         }
         
         let csvCompleto = csvLines.joined(separator: "\n")
