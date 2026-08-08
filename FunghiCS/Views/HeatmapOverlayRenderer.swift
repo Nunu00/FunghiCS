@@ -120,15 +120,38 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
                         pixels[idx + 3] = 75  // Alpha
                     }
                 } else {
-                    // Zona Montana/Boschiva (>=800m s.l.m.) -> Calcolo Fruttificazione Reale
-                    let pioggiaBase = 28.0
-                    let pioggiaQuota = min(85.0, pioggiaBase + max(0.0, (quota - 800.0) / 45.0))
-                    let tempQuota = max(8.0, 22.0 - max(0.0, (quota - 800.0) / 160.0))
+                    // Zona Montana/Boschiva (>=800m s.l.m.) -> Calcolo Fruttificazione Reale da Griglia Spaziale
+                    let nodi = MeteoService.shared.nodiGrigliaSpaziale
                     
+                    var pioggiaLocale = 28.0
+                    var tempBase = 16.5
+                    var giorniDaPioggia = 5
+                    
+                    if !nodi.isEmpty {
+                        // Trova la media pesata dei nodi radar/satellite più vicini per risolvere i temporali estivi localizzati
+                        var pesoTotale = 0.0
+                        var pioggiaPesata = 0.0
+                        var tempPesata = 0.0
+                        
+                        for n in nodi {
+                            let d2 = (n.lat - lat)*(n.lat - lat) + (n.lon - lon)*(n.lon - lon)
+                            let w = 1.0 / max(0.0001, d2)
+                            pesoTotale += w
+                            pioggiaPesata += n.pioggia15gg * w
+                            tempPesata += n.tempMedia * w
+                        }
+                        
+                        if pesoTotale > 0 {
+                            pioggiaLocale = pioggiaPesata / pesoTotale
+                            tempBase = tempPesata / pesoTotale
+                        }
+                    }
+                    
+                    let tempQuota = max(8.0, tempBase - max(0.0, (quota - 800.0) / 160.0))
                     let meteoLocale = DatiMeteo(
-                        pioggiaCumulata15Giorni: pioggiaQuota,
+                        pioggiaCumulata15Giorni: pioggiaLocale,
                         temperaturaMedia: tempQuota,
-                        giorniDaUltimaPioggiaSignificativa: 5
+                        giorniDaUltimaPioggiaSignificativa: giorniDaPioggia
                     )
                     
                     let pTemp = PuntoInteresse(

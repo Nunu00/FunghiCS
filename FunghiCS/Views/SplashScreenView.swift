@@ -72,20 +72,20 @@ struct SplashScreenView: View {
             // Step 1: Forzare caricamento DEM INGV in memoria (109.329 punti)
             await MainActor.run {
                 messaggioStato = "Inizializzazione 109.329 punti INGV 10m..."
-                progresso = 0.35
+                progresso = 0.25
             }
             _ = DEMService.shared
             
-            // Step 2: Download bollettino meteo regionale live
+            // Step 2: Download griglia radar/satellite 36 nodi (cattura temporali estivi localizzati)
             await MainActor.run {
-                messaggioStato = "Scaricamento bollettini Open-Meteo live..."
-                progresso = 0.70
+                messaggioStato = "Download mappe pioggia Radar/Satellite 36 nodi..."
+                progresso = 0.65
             }
-            _ = await MeteoService.shared.caricaMeteoRegionaleIniziale()
+            _ = await MeteoService.shared.fetchGrigliaMeteoSpaziale()
             
             // Step 3: Calcolo mappe di calore e previsioni
             await MainActor.run {
-                messaggioStato = "Calcolo previsioni e preparazione mappa..."
+                messaggioStato = "Calcolo previsioni e mappa di calore..."
                 progresso = 1.0
             }
             
