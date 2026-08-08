@@ -7,11 +7,11 @@ final class CosenzaHeatmapOverlay: NSObject, MKOverlay {
     let boundingMapRect: MKMapRect
     let coordinate: CLLocationCoordinate2D
     
-    // Bounding Box Provincia di Cosenza
-    static let minLat: Double = 39.02
-    static let maxLat: Double = 40.18
-    static let minLon: Double = 15.82
-    static let maxLon: Double = 16.78
+    // Bounding Box Provincia di Cosenza e Basilicata (Est, Sud, Nord)
+    static let minLat: Double = 38.80
+    static let maxLat: Double = 40.35
+    static let minLon: Double = 15.80
+    static let maxLon: Double = 17.25
     
     override init() {
         let p1 = MKMapPoint(CLLocationCoordinate2D(latitude: CosenzaHeatmapOverlay.maxLat, longitude: CosenzaHeatmapOverlay.minLon))
@@ -166,13 +166,10 @@ final class CosenzaHeatmapOverlayRenderer: MKOverlayRenderer {
             }
         }
         
-        // Sfocatura box-blur 3x3 per sfumatura continua dei colori
-        var sfumato = sfocaBitmap(pixels: pixels, width: width, height: height)
-        
         let colorSpace = CGColorSpaceCreateDeviceRGB()
         let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)
         
-        guard let cfData = CFDataCreate(kCFAllocatorDefault, &sfumato, sfumato.count),
+        guard let cfData = CFDataCreate(kCFAllocatorDefault, &pixels, pixels.count),
               let dataProvider = CGDataProvider(data: cfData) else {
             return nil
         }

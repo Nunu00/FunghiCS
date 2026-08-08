@@ -46,12 +46,12 @@ final class DEMService {
     
     /// Restituisce true se la quota rientra nella fascia montana/boschiva idonea ai funghi (>= 800m s.l.m.)
     func isQuotaIdonea(quota: Double) -> Bool {
-        return quota >= 800.0 && quota <= 2100.0
+        return quota >= 800.0 && quota <= 2500.0
     }
     
-    /// Restituisce true se la posizione si trova sul mare o sulla costa (quota == 0)
+    /// Restituisce true se la posizione si trova sul mare o sulla costa (quota <= 20m)
     func isAreaMareOCosta(lat: Double, lon: Double, quota: Double) -> Bool {
-        return quota <= 20.0 || lon < 15.93 || (lat > 39.60 && lon > 16.55) || (lat <= 39.60 && lon > 16.68)
+        return quota <= 20.0
     }
     
     /// Restituisce la quota e i parametri orografici reali per qualsiasi coordinate lat/lon
@@ -73,10 +73,9 @@ final class DEMService {
             }
         }
         
-        if let punto = migliorPunto, minDistSq < 0.002 {
+        if let punto = migliorPunto, minDistSq < 0.008 {
             return (quota: punto.elevation, pendenza: punto.slope, esposizione: punto.aspect)
         } else {
-            // Fuori dalla provincia o in acqua
             return (quota: 0.0, pendenza: 0.0, esposizione: "N")
         }
     }

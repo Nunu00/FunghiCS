@@ -4,15 +4,15 @@ import math
 import os
 import numpy as np
 import matplotlib
-matplotlib.use('Agg') # Backend headless senza GUI
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-from PIL import Image, ImageFilter
+from PIL import Image
 
 output_dir = r"C:\Users\Vincenzo\.gemini\antigravity\brain\9edb03c6-5023-4dbf-8bf3-d755e66455fe"
 os.makedirs(output_dir, exist_ok=True)
 
-# Carica DEM JSON
+# Carica DEM JSON ampliato
 with open("FunghiCS/Resources/cosenza_dem.json", "r", encoding="utf-8") as f:
     dem_data = json.load(f)
 
@@ -22,8 +22,8 @@ min_lon = dem_data["minLon"]
 max_lon = dem_data["maxLon"]
 points = dem_data["points"]
 
-width = 250
-height = 250
+width = 300
+height = 300
 
 elevation_grid = np.zeros((height, width))
 mask_grid = np.zeros((height, width))
@@ -42,16 +42,16 @@ for y in range(height):
                 min_d = d
                 best_pt = p
                 
-        alt = best_pt["elevation"] if best_pt else 0.0
+        alt = best_pt["elevation"] if (best_pt and min_d < 0.008) else 0.0
         pendenza = best_pt["slope"] if best_pt else 0.0
         esposizione = best_pt["aspect"] if best_pt else "N"
         
         elevation_grid[y, x] = alt
         
-        is_sea = (alt <= 20.0 or lon < 15.93 or (lat > 39.60 and lon > 16.58) or (lat <= 39.60 and lon > 16.68))
-        is_suitable = (alt >= 800.0 and alt <= 2100.0)
+        # Filtro mare/quota reale: idoneo se alt >= 800m SENZA tagli geografici artificiali!
+        is_suitable = (alt >= 800.0 and alt <= 2500.0)
         
-        if is_suitable and not is_sea:
+        if is_suitable:
             mask_grid[y, x] = 1.0
             
             pioggia = min(95.0, 50.0 + (alt / 30.0))
@@ -69,12 +69,12 @@ for y in range(height):
             prob_grid[y, x] = 0.0
 
 # -------------------------------------------------------------
-# STEP 1: Mappa di Elevazione Reale INGV TINITALY
+# STEP 1: Mappa di Elevazione Reale INGV TINITALY 10m
 # -------------------------------------------------------------
 fig, ax = plt.subplots(figsize=(7, 7), dpi=140)
 im = ax.imshow(elevation_grid, extent=[min_lon, max_lon, min_lat, max_lat], cmap="terrain")
 fig.colorbar(im, ax=ax, label="Altitudine (metri s.l.m.)")
-ax.set_title("PASSAGGIO 1: Altitudini Reali INGV TINITALY (Provincia di Cosenza)", fontsize=10, fontweight="bold")
+ax.set_title("PASSAGGIO 1: Altitudini Reali GeoTIFF INGV (Copertura Ampliata)", fontsize=10, fontweight="bold")
 ax.set_xlabel("Longitudine")
 ax.set_ylabel("Latitudine")
 fig.tight_layout()
@@ -83,13 +83,13 @@ fig.savefig(p1)
 plt.close(fig)
 
 # -------------------------------------------------------------
-# STEP 2: Maschera Quota >800m e Filtro Mare / Coste
+# STEP 2: Maschera Quota >800m s.l.m. (Senza Tagli Artificiali)
 # -------------------------------------------------------------
 fig, ax = plt.subplots(figsize=(7, 7), dpi=140)
 cmap_mask = mcolors.ListedColormap(['#0f172a', '#22c55e'])
 im = ax.imshow(mask_grid, extent=[min_lon, max_lon, min_lat, max_lat], cmap=cmap_mask)
-fig.colorbar(im, ax=ax, ticks=[0, 1], label="Zone Idonee (>800m s.l.m.)")
-ax.set_title("PASSAGGIO 2: Filtro Quota >800m s.l.m. e Maschera Mare/Coste", fontsize=10, fontweight="bold")
+fig.colorbar(im, ax=ax, ticks=[0, 1], label="Zone Idonee (>=800m s.l.m.)")
+ax.set_title("PASSAGGIO 2: Filtro Quota >=800m s.l.m. (Tutte le Zone Idonee)", fontsize=10, fontweight="bold")
 ax.set_xlabel("Longitudine")
 ax.set_ylabel("Latitudine")
 fig.tight_layout()
@@ -112,7 +112,7 @@ fig.savefig(p3)
 plt.close(fig)
 
 # -------------------------------------------------------------
-# STEP 4: Mappa di Calore Grezza della Fruttificazione
+# STEP 4: Matrice Grezza Probabilità Fruttificazione
 # -------------------------------------------------------------
 rgba_prob = np.zeros((height, width, 4))
 for y in range(height):
@@ -141,14 +141,11 @@ fig.savefig(p4)
 plt.close(fig)
 
 # -------------------------------------------------------------
-# STEP 5: Mappa Termica Finale con Sfocatura Gaussiana 3x3
+# STEP 5: Mappa Termica Finale Ad Alta Definizione (Non Sfumata)
 # -------------------------------------------------------------
-img_pil = Image.fromarray((rgba_prob * 255).astype(np.uint8))
-img_blurred = img_pil.filter(ImageFilter.GaussianBlur(radius=2.5))
-
 fig, ax = plt.subplots(figsize=(7, 7), dpi=140)
-ax.imshow(img_blurred, extent=[min_lon, max_lon, min_lat, max_lat])
-ax.set_title("PASSAGGIO 5: Mappa Termica Finale Sfumata (Visualizzata su iOS)", fontsize=10, fontweight="bold")
+ax.imshow(rgba_prob, extent=[min_lon, max_lon, min_lat, max_lat])
+ax.set_title("PASSAGGIO 5: Mappa Termica Finale ad Alta Definizione (Senza Sfocatura)", fontsize=10, fontweight="bold")
 ax.set_xlabel("Longitudine")
 ax.set_ylabel("Latitudine")
 fig.tight_layout()
@@ -156,4 +153,4 @@ p5 = os.path.join(output_dir, "step5_final_heatmap.png")
 fig.savefig(p5)
 plt.close(fig)
 
-print("[OK] Generati tutti e 5 i passaggi visuali con successo!")
+print("[OK] Generati tutti e 5 i passaggi visuali SENZA tagli artificiali e SENZA sfocatura!")
