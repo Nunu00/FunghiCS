@@ -15,6 +15,9 @@ struct DettaglioPuntoView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     cardPrevisione
+                    if let m = meteo, let prev = previsione {
+                        GraficoIncubazioneView(punto: punto, meteo: m, previsione: prev)
+                    }
                     cardTerrenoCopernicus
                     cardMeteo
                     cardOsservazioni
