@@ -131,12 +131,7 @@ final class DEMService {
         
         if let punto = migliorPunto {
             let clc = punto.clcClass ?? (punto.elevation >= 800.0 ? "CLC_312_Coniferous_Pine_Forest" : "CLC_211")
-            let kv: Double
-            if clc == "CLC_512_Water_Bodies" || clc == "CLC_332_Bare_Rock_Screes" {
-                kv = 0.0
-            } else {
-                kv = punto.elevation >= 800.0 ? 1.0 : (punto.kVeg ?? 0.0)
-            }
+            let kv = punto.elevation >= 800.0 ? 1.0 : (punto.kVeg ?? 0.0)
             let soil = punto.soilType ?? "sandy_granite"
             
             let nomeVeg: String

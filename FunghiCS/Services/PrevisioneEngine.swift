@@ -95,8 +95,8 @@ struct PrevisioneEngine {
         
         var probCalc = pMax * fattoreCampanaGauss * kVeg * kVento * kUmiditaSuolo
         
-        if rapportoPioggia >= 1.0 && t <= 6 {
-            probCalc = max(48.0, probCalc)
+        if rapportoPioggia >= 0.50 && t <= 6 {
+            probCalc = max(38.0, probCalc)
         }
         
         let probFinale = Int(max(0.0, min(100.0, probCalc)))
