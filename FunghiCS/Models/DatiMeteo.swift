@@ -117,7 +117,9 @@ struct DatiMeteo {
             if let sm = hourly.soil_moisture_3_to_9cm ?? hourly.soil_moisture_0_to_1cm {
                 let validSm = sm.compactMap { $0 }
                 if !validSm.isEmpty {
-                    umiditaSuoloMiceliareVal = validSm.reduce(0, +) / Double(validSm.count)
+                    // Usa le ultime 120 ore (ultimi 5 giorni recenti post-pioggia) per riflettere l'umidità effettiva del suolo miceliare
+                    let recentSm = Array(validSm.suffix(min(120, validSm.count)))
+                    umiditaSuoloMiceliareVal = recentSm.reduce(0, +) / Double(recentSm.count)
                 }
             }
             

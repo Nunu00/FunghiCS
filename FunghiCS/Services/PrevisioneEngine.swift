@@ -74,8 +74,9 @@ struct PrevisioneEngine {
             pMax *= 1.20
         }
         
-        // 7. Penalizzazione Vento Secco (Vento > 22 km/h o alta evapotraspirazione)
-        let kVento = (meteo.velocitaVentoMax > 22.0 || meteo.evapotraspirazioneET0 > 4.5) ? 0.70 : 1.00
+        // 7. Penalizzazione Vento Secco sotto Chioma Forestale (Vento al suolo = 0.40 * Vento 10m Open-Meteo)
+        let ventoAlSuolo = meteo.velocitaVentoMax * 0.40
+        let kVento = (ventoAlSuolo > 15.0 || meteo.evapotraspirazioneET0 > 5.5) ? 0.75 : 1.00
         
         // 8. Modello ad Incubazione con Curva a Campana di Gauss e Trama del Suolo (SoilGrids)
         let sigma: Double
@@ -94,8 +95,8 @@ struct PrevisioneEngine {
         
         var probCalc = pMax * fattoreCampanaGauss * kVeg * kVento * kUmiditaSuolo
         
-        if rapportoPioggia >= 1.0 && t <= 6 {
-            probCalc = max(48.0, probCalc)
+        if rapportoPioggia >= 0.50 && t <= 6 {
+            probCalc = max(38.0, probCalc)
         }
         
         let probFinale = Int(max(0.0, min(100.0, probCalc)))

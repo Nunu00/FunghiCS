@@ -79,10 +79,11 @@ try:
             valid_ets = [e for e in ets if e is not None]
             et0_val = max(valid_ets) if valid_ets else 2.5
             
-            # 4. Umidità del Suolo Miceliare (3-9cm) e Shock Termico Suolo (DeltaT)
+            # 4. Umidità del Suolo Miceliare (3-9cm) sugli ultimi 5 giorni (120 ore recenti post-pioggia)
             soil_moisture = hourly.get("soil_moisture_3_to_9cm", [])
             valid_sm = [s for s in soil_moisture if s is not None]
-            umidita_suolo_3_9 = (sum(valid_sm) / len(valid_sm)) if valid_sm else 0.25
+            recent_sm = valid_sm[-120:] if len(valid_sm) >= 120 else valid_sm
+            umidita_suolo_3_9 = (sum(recent_sm) / len(recent_sm)) if recent_sm else 0.25
             
             soil_temp = hourly.get("soil_temperature_0_to_10cm", [])
             valid_st = [t for t in soil_temp if t is not None]
@@ -242,7 +243,8 @@ for y in range(height):
             if delta_t_suolo >= 3.5 and pioggia_locale >= 20.0:
                 p_max *= 1.20
                 
-            k_vento = 0.70 if (vento_max > 22.0 or et0_val > 4.5) else 1.00
+            vento_al_suolo = vento_max * 0.40
+            k_vento = 0.75 if (vento_al_suolo > 15.0 or et0_val > 5.5) else 1.00
             
             sigma = 1.8 if soil_type == "sandy_granite" else (3.0 if soil_type == "clay_limestone" else 2.4)
             mu = 6.5
@@ -251,8 +253,8 @@ for y in range(height):
             k_umidita = max(0.2, umidita_suolo_miceliare / 0.18) if umidita_suolo_miceliare < 0.18 else 1.0
             
             prob_calc = p_max * gauss * k_veg * k_vento * k_umidita
-            if rapporto_p >= 0.60 and giorni_da_pioggia <= 6:
-                prob_calc = max(42.0, prob_calc)
+            if rapporto_p >= 0.50 and giorni_da_pioggia <= 6:
+                prob_calc = max(38.0, prob_calc)
                 
             prob = int(max(0.0, min(100.0, prob_calc)))
             
