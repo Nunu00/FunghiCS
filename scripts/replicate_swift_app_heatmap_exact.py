@@ -221,8 +221,8 @@ for y in range(height):
             esposizione = p.get("aspect", "N") if p else "N"
             soil_type = p.get("soilType", "sandy_granite") if p else "sandy_granite"
             
-            # DISCREPANZA 4: Ordine esatto di PrevisioneEngine.swift
-            soglia_base = 60.0
+            # DISCREPANZA 4: Ordine esatto di PrevisioneEngine.swift (Soglia Porcino Boletus edulis = 35.0mm)
+            soglia_base = 35.0
             fattore_corr = 1.0
             
             if quota > 1000.0: fattore_corr *= 0.90
