@@ -353,40 +353,58 @@ struct PrevisioneEngine {
                             }
                         }
                         
-                        if pioggiaLocale >= 70.0 {
-                            // Blu Scuro Elettrico (Abbondante >= 70mm)
-                            pixels[idx]     = 30
-                            pixels[idx + 1] = 64
-                            pixels[idx + 2] = 175
-                            pixels[idx + 3] = 210
-                        } else if pioggiaLocale >= 45.0 {
-                            // Azzurro Ciano Intenso (Ottima 45-69mm)
-                            pixels[idx]     = 6
-                            pixels[idx + 1] = 182
-                            pixels[idx + 2] = 212
-                            pixels[idx + 3] = 200
-                        } else if pioggiaLocale >= 25.0 {
-                            // Verde Acqua Smeraldo (Moderata 25-44mm)
-                            pixels[idx]     = 16
-                            pixels[idx + 1] = 185
-                            pixels[idx + 2] = 129
-                            pixels[idx + 3] = 190
-                        } else if pioggiaLocale >= 10.0 {
-                            // Giallo Sabbia (Scarsa 10-24mm)
-                            pixels[idx]     = 234
-                            pixels[idx + 1] = 179
-                            pixels[idx + 2] = 8
-                            pixels[idx + 3] = 170
-                        } else {
-                            // Grigio Trasparente (<10mm)
-                            pixels[idx]     = 156
-                            pixels[idx + 1] = 163
-                            pixels[idx + 2] = 175
-                            pixels[idx + 3] = 120
-                        }
+                        let col = PrevisioneEngine.colorePioggiaContinuo(mm: pioggiaLocale)
+                        pixels[idx]     = col.r
+                        pixels[idx + 1] = col.g
+                        pixels[idx + 2] = col.b
+                        pixels[idx + 3] = col.a
                     }
                 }
             }
+            
+            print("✅ [DEBUG] Heatmap Precipitazioni Continua CGImage pre-calcolata con successo!")
+            return bitmapContext.makeImage()
+        }.value
+    }
+    
+    /// Calcola la sfumatura di colore continua RGBA per qualsiasi valore di pioggia cumulata (mm)
+    static func colorePioggiaContinuo(mm: Double) -> (r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
+        let clampedMM = max(0.0, min(100.0, mm))
+        let norm = clampedMM / 100.0
+        
+        let r: Double
+        let g: Double
+        let b: Double
+        let a: Double
+        
+        if norm < 0.20 {
+            let t = norm / 0.20
+            r = 156.0 + t * (234.0 - 156.0)
+            g = 163.0 + t * (195.0 - 163.0)
+            b = 175.0 + t * (20.0 - 175.0)
+            a = 120.0 + t * (165.0 - 120.0)
+        } else if norm < 0.45 {
+            let t = (norm - 0.20) / 0.25
+            r = 234.0 + t * (16.0 - 234.0)
+            g = 195.0 + t * (185.0 - 195.0)
+            b = 20.0 + t * (129.0 - 20.0)
+            a = 165.0 + t * (185.0 - 165.0)
+        } else if norm < 0.70 {
+            let t = (norm - 0.45) / 0.25
+            r = 16.0 + t * (6.0 - 16.0)
+            g = 185.0 + t * (182.0 - 185.0)
+            b = 129.0 + t * (212.0 - 129.0)
+            a = 185.0 + t * (210.0 - 185.0)
+        } else {
+            let t = min(1.0, (norm - 0.70) / 0.30)
+            r = 6.0 + t * (30.0 - 6.0)
+            g = 182.0 + t * (64.0 - 182.0)
+            b = 210.0 + t * (210.0 - 210.0)
+            a = 200.0 + t * (220.0 - 200.0)
+        }
+        
+        return (UInt8(r), UInt8(g), UInt8(b), UInt8(a))
+    }
             
             print("✅ [DEBUG] Heatmap Precipitazioni 15gg CGImage pre-calcolata con successo!")
             return bitmapContext.makeImage()

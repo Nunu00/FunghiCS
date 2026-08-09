@@ -45,12 +45,18 @@ struct MappaView: View {
                 
                 // Selettore della Modalità Mappa e Legenda Dinamica
                 VStack {
-                    // Segmented Control Trasparente in alto
-                    Picker("Tipo Mappa", selection: $tipoMappa) {
-                        Text("🍄 Fruttificazione").tag(TipoMappaOverlay.fruttificazione)
-                        Text("🌧️ Pioggia 15gg").tag(TipoMappaOverlay.precipitazioni)
+                    // Selettore Mappa ad Alto Contrasto
+                    HStack {
+                        Picker("Tipo Mappa", selection: $tipoMappa) {
+                            Text("🍄 Fruttificazione").tag(TipoMappaOverlay.fruttificazione)
+                            Text("🌧️ Pioggia 15gg").tag(TipoMappaOverlay.precipitazioni)
+                        }
+                        .pickerStyle(.segmented)
                     }
-                    .pickerStyle(.segmented)
+                    .padding(6)
+                    .background(Color(uiColor: .systemBackground))
+                    .cornerRadius(14)
+                    .shadow(color: Color.black.opacity(0.30), radius: 6, x: 0, y: 3)
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
                     .onChange(of: tipoMappa) { _, nuovoTipo in
@@ -62,7 +68,7 @@ struct MappaView: View {
                         Spacer()
                         
                         // Legenda Dinamica in base al tipo di mappa selezionato
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: 6) {
                             if tipoMappa == .fruttificazione {
                                 Text("Legenda Fruttificazione")
                                     .font(.caption2)
@@ -72,21 +78,41 @@ struct MappaView: View {
                                 HStack { Circle().fill(Color.yellow).frame(width: 8, height: 8); Text("Esaurimento (30-47%)").font(.caption2) }
                                 HStack { Circle().fill(Color.gray).frame(width: 8, height: 8); Text("Non fav. (<30%)").font(.caption2) }
                             } else {
-                                Text("Legenda Pioggia 15gg")
+                                Text("Legenda Pioggia Continua (15gg)")
                                     .font(.caption2)
                                     .bold()
-                                HStack { Circle().fill(Color.blue).frame(width: 8, height: 8); Text("Abbondante (≥70mm)").font(.caption2) }
-                                HStack { Circle().fill(Color.cyan).frame(width: 8, height: 8); Text("Ottima (45-69mm)").font(.caption2) }
-                                HStack { Circle().fill(Color.teal).frame(width: 8, height: 8); Text("Moderata (25-44mm)").font(.caption2) }
-                                HStack { Circle().fill(Color.yellow).frame(width: 8, height: 8); Text("Scarsa (10-24mm)").font(.caption2) }
-                                HStack { Circle().fill(Color.gray).frame(width: 8, height: 8); Text("Assente (<10mm)").font(.caption2) }
+                                
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Color(red: 156/255, green: 163/255, blue: 175/255),
+                                                Color(red: 234/255, green: 195/255, blue: 20/255),
+                                                Color(red: 16/255, green: 185/255, blue: 129/255),
+                                                Color(red: 6/255, green: 182/255, blue: 212/255),
+                                                Color(red: 30/255, green: 64/255, blue: 210/255)
+                                            ],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                                    .frame(width: 140, height: 10)
+                                
+                                HStack {
+                                    Text("0mm").font(.system(size: 9, weight: .bold))
+                                    Spacer()
+                                    Text("50mm").font(.system(size: 9, weight: .bold))
+                                    Spacer()
+                                    Text("≥100mm").font(.system(size: 9, weight: .bold))
+                                }
+                                .frame(width: 140)
                             }
                         }
-                        .padding(8)
-                        .background(.ultraThinMaterial)
+                        .padding(10)
+                        .background(Color(uiColor: .systemBackground).opacity(0.95))
                         .cornerRadius(12)
-                        .shadow(radius: 2)
-                        .padding(.trailing, 12)
+                        .shadow(color: Color.black.opacity(0.20), radius: 4, x: 0, y: 2)
+                        .padding(.trailing, 16)
                         .padding(.top, 4)
                     }
                     

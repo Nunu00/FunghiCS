@@ -21,8 +21,8 @@ points = dem_data["points"]
 min_lat, max_lat = dem_data["minLat"], dem_data["maxLat"]
 min_lon, max_lon = dem_data["minLon"], dem_data["maxLon"]
 
-# Seleziona 100 nodi montani (quota >= 800m) sparsi per la griglia spaziale
-punti_montani = [p for p in points if p.get("elevation", 0) >= 800.0]
+# Seleziona 100 nodi montani idonei (kVeg > 0 e elevation >= 600m) sparsi per la griglia spaziale - ESATTO SWIFT
+punti_montani = [p for p in points if (p.get("kVeg") if p.get("kVeg") is not None else 1.0) > 0.0 and p.get("elevation", 0) >= 600.0]
 step = max(1, len(punti_montani) // 100)
 nodi_coords = [(p["lat"], p["lon"]) for p in punti_montani[::step][:100]]
 
@@ -222,7 +222,7 @@ for y in range(height):
             soil_type = p.get("soilType", "sandy_granite") if p else "sandy_granite"
             
             # DISCREPANZA 4: Ordine esatto di PrevisioneEngine.swift (Soglia Porcino Boletus edulis = 35.0mm)
-            soglia_base = 35.0
+            soglia_base = 60.0
             fattore_corr = 1.0
             
             if quota > 1000.0: fattore_corr *= 0.90
