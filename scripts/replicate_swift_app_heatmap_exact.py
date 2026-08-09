@@ -21,8 +21,8 @@ points = dem_data["points"]
 min_lat, max_lat = dem_data["minLat"], dem_data["maxLat"]
 min_lon, max_lon = dem_data["minLon"], dem_data["maxLon"]
 
-# Seleziona 100 nodi montani (quota >= 800m) sparsi per la griglia spaziale
-punti_montani = [p for p in points if p.get("elevation", 0) >= 800.0]
+# Seleziona 100 nodi montani idonei (kVeg > 0 e elevation >= 600m) sparsi per la griglia spaziale - ESATTO SWIFT
+punti_montani = [p for p in points if (p.get("kVeg") if p.get("kVeg") is not None else 1.0) > 0.0 and p.get("elevation", 0) >= 600.0]
 step = max(1, len(punti_montani) // 100)
 nodi_coords = [(p["lat"], p["lon"]) for p in punti_montani[::step][:100]]
 
@@ -253,8 +253,8 @@ for y in range(height):
             k_umidita = max(0.2, umidita_suolo_miceliare / 0.18) if umidita_suolo_miceliare < 0.18 else 1.0
             
             prob_calc = p_max * gauss * k_veg * k_vento * k_umidita
-            if rapporto_p >= 0.50 and giorni_da_pioggia <= 6:
-                prob_calc = max(38.0, prob_calc)
+            if rapporto_p >= 1.0 and giorni_da_pioggia <= 6:
+                prob_calc = max(48.0, prob_calc)
                 
             prob = int(max(0.0, min(100.0, prob_calc)))
             
