@@ -405,11 +405,6 @@ struct PrevisioneEngine {
         
         return (UInt8(r), UInt8(g), UInt8(b), UInt8(a))
     }
-            
-            print("✅ [DEBUG] Heatmap Precipitazioni 15gg CGImage pre-calcolata con successo!")
-            return bitmapContext.makeImage()
-        }.value
-    }
     
     /// Calibra il moltiplicatore di soglia del punto in base alle osservazioni storiche dell'utente
     static func ricalibraMoltiplicatore(punto: PuntoInteresse) {
