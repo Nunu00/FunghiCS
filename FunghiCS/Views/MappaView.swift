@@ -21,6 +21,8 @@ struct MappaView: View {
     
     @State private var mostrandoCSVExport = false
     @State private var testoCSVGenerato = ""
+    @State private var urlCSVFile: URL? = nil
+    @State private var mostrandoShareSheet = false
     @State private var messaggioNotifica = ""
     @State private var mostraNotificaCopiato = false
     
@@ -137,7 +139,7 @@ struct MappaView: View {
             .sheet(isPresented: $mostrandoCSVExport) {
                 NavigationStack {
                     VStack(spacing: 12) {
-                        Text("Matrice CSV Pixel della Mappa di Calore calcolata dall'App (Copia ed incolla nella chat per confronto 1:1):")
+                        Text("Matrice CSV Pixel 1:1 (90.000 pixel 300x300) generata ed archiviata nella memoria del telefono:")
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .padding(.horizontal)
@@ -150,22 +152,36 @@ struct MappaView: View {
                             .cornerRadius(8)
                             .padding(.horizontal)
                         
+                        if let fileURL = urlCSVFile {
+                            ShareLink(item: fileURL) {
+                                Label("💾 Salva / Condividi File CSV 1:1 (90.000 Pixel)", systemImage: "square.and.arrow.up.fill")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(Color.green)
+                                    .cornerRadius(12)
+                            }
+                            .padding(.horizontal)
+                        }
+                        
                         Button {
                             UIPasteboard.general.string = testoCSVGenerato
                             mostraToast("✅ CSV Pixel copiato negli appunti!")
                         } label: {
-                            Label("Copia CSV Pixel negli Appunti", systemImage: "doc.on.doc.fill")
-                                .font(.headline)
-                                .foregroundColor(.white)
+                            Label("Copia CSV negli Appunti", systemImage: "doc.on.doc.fill")
+                                .font(.subheadline)
+                                .bold()
+                                .foregroundColor(.blue)
                                 .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.blue)
-                                .cornerRadius(12)
+                                .padding(.vertical, 10)
+                                .background(Color.blue.opacity(0.12))
+                                .cornerRadius(10)
                         }
                         .padding(.horizontal)
                         .padding(.bottom, 12)
                     }
-                    .navigationTitle("📋 Export CSV Pixel Mappa")
+                    .navigationTitle("📋 Export CSV 1:1 (300x300)")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
@@ -240,7 +256,7 @@ struct MappaView: View {
         let maxLon: Double = 17.25
         
         let nodi = MeteoService.nodiGrigliaSpaziale
-        let step = 4
+        let step = 1
         
         for y in stride(from: 0, to: height, by: step) {
             let lat = maxLat - (Double(y) / Double(height)) * (maxLat - minLat)
@@ -359,6 +375,7 @@ struct MappaView: View {
         }
         
         var csvLines: [String] = []
+        csvLines.reserveCapacity(90001)
         csvLines.append("GridY,GridX,Lat,Lon,Quota,PioggiaLocale,GiorniSenzaPioggia,Probabilita,StatoColore,HexColor")
         
         for p in pixelOrdinati {
@@ -370,10 +387,22 @@ struct MappaView: View {
         let csvCompleto = csvLines.joined(separator: "\n")
         self.testoCSVGenerato = csvCompleto
         
+        // Salvataggio 1:1 del file CSV nella cartella Documenti dell'iPhone
+        if let docsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+            let fileURL = docsURL.appendingPathComponent("matrice_pixel_heatmap_cosenza_1to1.csv")
+            do {
+                try csvCompleto.write(to: fileURL, atomically: true, encoding: .utf8)
+                self.urlCSVFile = fileURL
+                print("💾 File CSV 1:1 salvato in: \(fileURL.path)")
+            } catch {
+                print("❌ Errore scrittura file CSV: \(error)")
+            }
+        }
+        
         // Copia automatica negli appunti di iOS
         UIPasteboard.general.string = csvCompleto
         mostrandoCSVExport = true
-        mostraToast("📋 CSV Pixel Mappa di Calore copiato negli appunti!")
+        mostraToast("💾 CSV 1:1 (90.000 Pixel) Salvato nel telefono e copiato!")
     }
     
     private func mostraToast(_ messaggio: String) {
