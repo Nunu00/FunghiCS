@@ -142,7 +142,7 @@ struct DettaglioPuntoView: View {
                     }
                     GridRow {
                         Text("Umidità Suolo (3-9cm):").bold()
-                        Text("\(String(format: "%.2f", m.umiditaSuoloMiceliare)) m³/m³")
+                        Text("\(Int(round(m.umiditaSuoloMiceliare * 100)))%")
                         Text("Temp. Terreno:").bold()
                         Text("\(String(format: "%.1f", m.temperaturaSuolo)) °C")
                     }
@@ -302,11 +302,24 @@ struct GraficoIncubazioneView: View {
     private var faseAttualeSintesi: (testo: String, colore: Color, icona: String) {
         let t = meteo.giorniDaUltimaPioggiaSignificativa
         if t <= 4 {
-            return ("Incubazione Miceliare (Primordi nel terreno)", .orange, "leaf.arrow.triangle.circlepath")
+            return ("Incubazione Miceliare (Formazione primi funghi)", .orange, "leaf.arrow.triangle.circlepath")
         } else if t >= 5 && t <= 8 {
             return ("Picco della Buttata (Carpofori Pronti!)", .green, "checkmark.seal.fill")
         } else {
             return ("Fase di Discesa (Terreno in Asciugatura)", .secondary, "clock.arrow.circlepath")
+        }
+    }
+    
+    private var etichetteXVisibili: [String] {
+        let points = dataPoints
+        let t = meteo.giorniDaUltimaPioggiaSignificativa
+        // Mostriamo etichette distanziate a passo 3 per evitare sovrapposizioni visive
+        return points.compactMap { p -> String? in
+            let diff = abs(p.giorno - t)
+            if p.eOggi || diff % 3 == 0 {
+                return p.etichettaGiorno
+            }
+            return nil
         }
     }
     
@@ -386,10 +399,10 @@ struct GraficoIncubazioneView: View {
                 }
             }
             .chartXAxis {
-                AxisMarks(values: .automatic) { value in
+                AxisMarks(values: etichetteXVisibili) { value in
                     AxisGridLine()
                     AxisValueLabel()
-                        .font(.caption2)
+                        .font(.system(size: 10, weight: .bold))
                 }
             }
             .frame(height: 180)
