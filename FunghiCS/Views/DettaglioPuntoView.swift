@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import Charts
 
 struct DettaglioPuntoView: View {
     @Environment(\.dismiss) private var dismiss
