@@ -102,6 +102,9 @@ struct PrevisioneEngine {
         let probFinale = Int(max(0.0, min(100.0, probCalc)))
         
         // 10. Determinazione dello Stato e del Messaggio di Sintesi ALLINEATO 100% ALLA LEGENDA COLORE
+        let t = meteo.giorniDaUltimaPioggiaSignificativa
+        let eInSalita = (t <= 4)
+        
         let stato: StatoFruttificazione
         let messaggio: String
         
@@ -110,13 +113,23 @@ struct PrevisioneEngine {
             stato = .buttataProbabile
             messaggio = "Suolo idratato. Probabile fruttificazione in corso."
         } else if probFinale >= 48 {
-            // ARANCIONE (48-64%) -> SEMPRE "IN PREPARAZIONE / INCUBAZIONE"
-            stato = .inPreparazione
-            messaggio = "Suolo idratato. Inizio fase di incubazione."
+            // ARANCIONE (48-64%)
+            if eInSalita {
+                stato = .inPreparazione
+                messaggio = "Terreno in fase di incubazione idrica. Buttata in crescita nei prossimi giorni."
+            } else {
+                stato = .inPreparazione
+                messaggio = "Suolo idratato. Buttata in corso / fase di maturazione."
+            }
         } else if probFinale >= 30 {
-            // GIALLO (30-47%) -> SEMPRE "IN ESAURIMENTO / CALANTE"
-            stato = .inEsaurimento
-            messaggio = "Suolo in corso di asciugatura. Fase calante della fruttificazione."
+            // GIALLO (30-47%)
+            if eInSalita {
+                stato = .inPreparazione
+                messaggio = "Terreno in fase di incubazione miceliare. Buttata in preparazione nei prossimi giorni."
+            } else {
+                stato = .inEsaurimento
+                messaggio = "Suolo in corso di asciugatura. Fase calante della fruttificazione."
+            }
         } else {
             // GRIGIO (<30%)
             stato = .nonFavorevole
