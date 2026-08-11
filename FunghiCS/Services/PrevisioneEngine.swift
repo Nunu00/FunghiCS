@@ -102,8 +102,7 @@ struct PrevisioneEngine {
         let probFinale = Int(max(0.0, min(100.0, probCalc)))
         
         // 10. Determinazione dello Stato e del Messaggio di Sintesi ALLINEATO 100% ALLA LEGENDA COLORE
-        let t = meteo.giorniDaUltimaPioggiaSignificativa
-        let eInSalita = (t <= 4)
+        let eInSalita = (meteo.giorniDaUltimaPioggiaSignificativa <= 4)
         
         let stato: StatoFruttificazione
         let messaggio: String
